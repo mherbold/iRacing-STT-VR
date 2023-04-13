@@ -1,0 +1,58 @@
+﻿<Window x:Class="iRacingSTTVR.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:iRacingSTTVR"
+        mc:Ignorable="d"
+        Title="iRacing-STT-VR" Width="480" Closed="Window_Closed" ResizeMode="NoResize" SizeToContent="WidthAndHeight" WindowStartupLocation="CenterScreen">
+    <StackPanel>
+        <TabControl>
+            <TabItem Header="Status">
+                <StackPanel Margin="5,0,5,0 ">
+                    <TextBox x:Name="StatusTextBox" TextWrapping="Wrap" Text="TextBox" IsReadOnly="True" Padding="3" Height="95.84" Margin="0,5,0,5"/>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Cognitive Service API">
+                <StackPanel Margin="5,0,5,10">
+                    <Label Content="Cognitive Service Key"/>
+                    <TextBox x:Name="CognitiveServiceKeyTextBox" TextWrapping="NoWrap" Text="TextBox" Padding="3"/>
+                    <Label Content="Cognitive Service Location / Region"/>
+                    <TextBox x:Name="CognitiveServiceRegionTextBox" TextWrapping="NoWrap" Text="TextBox" Padding="3"/>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Speech Service">
+                <StackPanel Margin="5,0,5,10">
+                    <Label Content="Log File Name"/>
+                    <TextBox x:Name="LogFileNameTextBox" TextWrapping="NoWrap" Text="TextBox" Padding="3"/>
+                    <CheckBox x:Name="EnableProfanityFilterCheckBox" Content="Enable Profanity Filter" Margin="0,10,0,0"/>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Graphics">
+                <StackPanel Margin="5,0,5,10">
+                    <Label Content="Background Texture File Name"/>
+                    <TextBox x:Name="BackgroundTextureFileNameTextBox" TextWrapping="NoWrap" Text="TextBox" Padding="3"/>
+                    <Label Content="Font File Name"/>
+                    <TextBox x:Name="FontFileNameTextBox" TextWrapping="NoWrap" Text="TextBox" Padding="3"/>
+                    <Label Content="Font Size" />
+                    <Slider x:Name="FontSizeSlider" Margin="0,0,0,0" Maximum="100" Minimum="10" SmallChange="1" LargeChange="5" />
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Controllers">
+                <StackPanel Margin="5,0,5,10">
+                    <Label Content="Joystick Device Name"/>
+                    <ComboBox x:Name="JoystickDeviceNameComboBox"/>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Audio">
+                <StackPanel Margin="5,0,5,10">
+                    <Label Content="Audio Capture Device Name"/>
+                    <ComboBox x:Name="AudioCaptureDeviceNameComboBox"/>
+                    <Label Content="Audio Render Device Name"/>
+                    <ComboBox x:Name="AudioRenderDeviceNameComboBox"/>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+        <Button x:Name="RestartButton" Content="Restart" Margin="5,5,5,5"/>
+    </StackPanel>
+</Window>

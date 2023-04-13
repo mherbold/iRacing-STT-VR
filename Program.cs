@@ -36,6 +36,7 @@ using irsdkSharp.Serialization.Models.Data;
 using Vortice.DirectInput;
 
 using NAudio.CoreAudioApi;
+using System.Windows.Forms;
 
 #endregion
 
@@ -105,6 +106,12 @@ namespace iRacingSTTVR
 		#endregion
 
 		#region Properties
+
+		#region Main window properties
+
+		private static readonly MainWindow _mainWindow = new();
+
+		#endregion
 
 		#region Settings properties
 
@@ -199,8 +206,15 @@ namespace iRacingSTTVR
 
 		#region Main
 
+		[STAThread]
 		static void Main()
 		{
+			#region Initialize main window
+
+			_mainWindow.Show();
+
+			#endregion
+
 			var task = MainAsync();
 
 			task.Wait();
@@ -294,7 +308,7 @@ namespace iRacingSTTVR
 
 				var stopwatch = Stopwatch.StartNew();
 
-				while ( _sdl2Window.Exists )
+				while ( _sdl2Window.Exists && !_mainWindow._isClosed )
 				{
 					#region Window event pump
 
@@ -304,6 +318,8 @@ namespace iRacingSTTVR
 					{
 						break;
 					}
+
+					Application.DoEvents();
 
 					#endregion
 
@@ -425,7 +441,7 @@ namespace iRacingSTTVR
 			{
 				Log( "Creating window and graphics device..." );
 
-				var windowCreateInfo = new WindowCreateInfo( Sdl2Native.SDL_WINDOWPOS_CENTERED, Sdl2Native.SDL_WINDOWPOS_CENTERED, 320, 240, WindowState.Normal, OverlayName );
+				var windowCreateInfo = new WindowCreateInfo( Sdl2Native.SDL_WINDOWPOS_CENTERED, Sdl2Native.SDL_WINDOWPOS_CENTERED, 320, 240, WindowState.Hidden, OverlayName );
 
 				var graphicsDeviceOptions = new GraphicsDeviceOptions( true );
 
@@ -537,9 +553,12 @@ namespace iRacingSTTVR
 
 		private static void InitializeJoystickDevice()
 		{
-			if ( ( _settings != null ) && ( _settings.SelectedJoystickDeviceName != NoneName ) )
+			if ( _settings != null )
 			{
-				Log( $"Searching for joystick device \"{_settings.SelectedJoystickDeviceName}\"..." );
+				if ( _settings.SelectedJoystickDeviceName != NoneName )
+				{
+					Log( $"Searching for joystick device \"{_settings.SelectedJoystickDeviceName}\"..." );
+				}
 
 				var directInput = DInput.DirectInput8Create();
 
@@ -551,21 +570,27 @@ namespace iRacingSTTVR
 				{
 					_settings.ConnectedJoystickDevices.Add( device.ProductName );
 
-					if ( ( _directInputDevice == null ) && ( device.ProductName == _settings.SelectedJoystickDeviceName ) )
+					if ( _settings.SelectedJoystickDeviceName != NoneName )
 					{
-						Log( "...found joystick device!" );
+						if ( device.ProductName == _settings.SelectedJoystickDeviceName )
+						{
+							Log( "...found joystick device!" );
 
-						_directInputDevice = directInput.CreateDevice( device.InstanceGuid );
+							_directInputDevice = directInput.CreateDevice( device.InstanceGuid );
 
-						_directInputDevice.SetCooperativeLevel( IntPtr.Zero, CooperativeLevel.NonExclusive | CooperativeLevel.Foreground );
+							_directInputDevice.SetCooperativeLevel( IntPtr.Zero, CooperativeLevel.NonExclusive | CooperativeLevel.Foreground );
 
-						_directInputDevice.SetDataFormat<RawJoystickState>();
+							_directInputDevice.SetDataFormat<RawJoystickState>();
 
-						return;
+							return;
+						}
 					}
 				}
 
-				Log( "...could not find that joystick device." );
+				if ( _settings.SelectedJoystickDeviceName != NoneName )
+				{
+					Log( "...could not find that joystick device." );
+				}
 			}
 		}
 
@@ -693,9 +718,12 @@ namespace iRacingSTTVR
 
 		private static async Task InitializeAudioCaptureDevice()
 		{
-			if ( ( _settings != null ) && ( _settings.SelectedAudioCaptureDeviceName != NoneName ) && ( _settings.CognitiveServiceKey != null ) && ( _settings.CognitiveServiceRegion != null ) )
+			if ( ( _settings != null ) )
 			{
-				Log( $"Searching for audio capture device \"{_settings.SelectedAudioCaptureDeviceName}\"..." );
+				if ( _settings.SelectedAudioCaptureDeviceName != NoneName )
+				{
+					Log( $"Searching for audio capture device \"{_settings.SelectedAudioCaptureDeviceName}\"..." );
+				}
 
 				var deviceInformationList = await DeviceInformation.FindAllAsync( Windows.Devices.Enumeration.DeviceClass.AudioCapture );
 
@@ -705,126 +733,138 @@ namespace iRacingSTTVR
 				{
 					_settings.ConnectedAudioCaptureDevices.Add( deviceInformation.Name );
 
-					if ( deviceInformation.Name == _settings.SelectedAudioCaptureDeviceName )
+					if ( _settings.SelectedAudioCaptureDeviceName != NoneName )
 					{
-						Log( "...found audio capture device!" );
-
-						SpeechConfig speechConfig;
-
-						try
+						if ( deviceInformation.Name == _settings.SelectedAudioCaptureDeviceName )
 						{
-							speechConfig = SpeechConfig.FromSubscription( _settings.CognitiveServiceKey, _settings.CognitiveServiceRegion );
-						}
-						catch
-						{
-							Log( "Cognitive speech services could not be initialized." );
+							Log( "...found audio capture device!" );
+
+							if ( ( _settings.CognitiveServiceKey != null ) && ( _settings.CognitiveServiceRegion != null ) )
+							{
+								SpeechConfig speechConfig;
+
+								try
+								{
+									speechConfig = SpeechConfig.FromSubscription( _settings.CognitiveServiceKey, _settings.CognitiveServiceRegion );
+								}
+								catch
+								{
+									Log( "Cognitive speech services could not be initialized." );
+
+									return;
+								}
+
+								speechConfig.SpeechRecognitionLanguage = "en-US";
+								speechConfig.SetProfanity( _settings.EnableProfanityFilter ? ProfanityOption.Masked : ProfanityOption.Raw );
+
+								if ( _settings.CognitiveServiceLogFileName != NoneName )
+								{
+									speechConfig.SetProperty( PropertyId.Speech_LogFilename, _appDataFolder + _settings.CognitiveServiceLogFileName );
+								}
+
+								var match = Regex.Match( deviceInformation.Id, @"({[^#]*})" );
+
+								if ( match.Success )
+								{
+									var deviceId = match.Groups[ 1 ].Value;
+
+									using var audioConfig = AudioConfig.FromMicrophoneInput( deviceId );
+
+									_speechRecognizer = new SpeechRecognizer( speechConfig, audioConfig );
+
+									_speechRecognizer.Recognizing += ( s, e ) =>
+									{
+										// Debug.WriteLine( $"_speechRecognizer.Recognizing, e.Result.Text = {e.Result.Text}" );
+
+										_speechTick = 0;
+
+										if ( !_radioChatterA.Complete )
+										{
+											_radioTick = 0;
+
+											_radioChatterA.Text = $"{_recognizedString} {e.Result.Text}";
+										}
+										else
+										{
+											_radioChatterB.Text = $"{_recognizedString} {e.Result.Text}";
+											_radioChatterB.Complete = false;
+										}
+
+										Debug.WriteLine( $"A - {_radioChatterA.Name}, {_radioChatterA.Complete}, {_radioChatterA.Text}" );
+										Debug.WriteLine( $"B - {_radioChatterB.Name}, {_radioChatterB.Complete}, {_radioChatterB.Text}" );
+									};
+
+									_speechRecognizer.Recognized += ( s, e ) =>
+									{
+										Debug.WriteLine( $"_speechRecognizer.Recognized, e.Result.Reason = {e.Result.Reason}, e.Result.Text = {e.Result.Text}" );
+
+										_speechTick = 0;
+
+										if ( e.Result.Reason == ResultReason.RecognizedSpeech )
+										{
+											// Debug.WriteLine( $"Recognized speech: {e.Result.Text}" );
+
+											if ( _recognizedString.Length > 0 )
+											{
+												_recognizedString += $" {e.Result.Text}";
+											}
+											else
+											{
+												_recognizedString = e.Result.Text;
+											}
+
+											if ( !_radioChatterA.Complete )
+											{
+												_radioChatterA.Text = _recognizedString;
+												_radioChatterA.Complete = true;
+
+												_recognizedString = string.Empty;
+											}
+											else
+											{
+												_radioChatterB.Text = _recognizedString;
+												_radioChatterB.Complete = true;
+											}
+
+											Debug.WriteLine( $"A - {_radioChatterA.Name}, {_radioChatterA.Complete}, {_radioChatterA.Text}" );
+											Debug.WriteLine( $"B - {_radioChatterB.Name}, {_radioChatterB.Complete}, {_radioChatterB.Text}" );
+										}
+									};
+
+									_speechRecognizer.SessionStopped += ( s, e ) =>
+									{
+										Debug.WriteLine( "_speechRecognizer.SessionStopped" );
+									};
+
+									_speechRecognizer.Canceled += ( s, e ) =>
+									{
+										Debug.WriteLine( $"_speechRecognizer.Canceled, reason = {e.Reason}" );
+									};
+
+									Log( "Speech to text engine started." );
+								}
+							}
 
 							return;
 						}
-
-						speechConfig.SpeechRecognitionLanguage = "en-US";
-						speechConfig.SetProfanity( _settings.EnableProfanityFilter ? ProfanityOption.Masked : ProfanityOption.Raw );
-
-						if ( _settings.CognitiveServiceLogFileName != NoneName )
-						{
-							speechConfig.SetProperty( PropertyId.Speech_LogFilename, _appDataFolder + _settings.CognitiveServiceLogFileName );
-						}
-
-						var match = Regex.Match( deviceInformation.Id, @"({[^#]*})" );
-
-						if ( match.Success )
-						{
-							var deviceId = match.Groups[ 1 ].Value;
-
-							using var audioConfig = AudioConfig.FromMicrophoneInput( deviceId );
-
-							_speechRecognizer = new SpeechRecognizer( speechConfig, audioConfig );
-
-							_speechRecognizer.Recognizing += ( s, e ) =>
-							{
-								// Debug.WriteLine( $"_speechRecognizer.Recognizing, e.Result.Text = {e.Result.Text}" );
-
-								_speechTick = 0;
-
-								if ( !_radioChatterA.Complete )
-								{
-									_radioTick = 0;
-
-									_radioChatterA.Text = $"{_recognizedString} {e.Result.Text}";
-								}
-								else
-								{
-									_radioChatterB.Text = $"{_recognizedString} {e.Result.Text}";
-									_radioChatterB.Complete = false;
-								}
-
-								Debug.WriteLine( $"A - {_radioChatterA.Name}, {_radioChatterA.Complete}, {_radioChatterA.Text}" );
-								Debug.WriteLine( $"B - {_radioChatterB.Name}, {_radioChatterB.Complete}, {_radioChatterB.Text}" );
-							};
-
-							_speechRecognizer.Recognized += ( s, e ) =>
-							{
-								Debug.WriteLine( $"_speechRecognizer.Recognized, e.Result.Reason = {e.Result.Reason}, e.Result.Text = {e.Result.Text}" );
-
-								_speechTick = 0;
-
-								if ( e.Result.Reason == ResultReason.RecognizedSpeech )
-								{
-									// Debug.WriteLine( $"Recognized speech: {e.Result.Text}" );
-
-									if ( _recognizedString.Length > 0 )
-									{
-										_recognizedString += $" {e.Result.Text}";
-									}
-									else
-									{
-										_recognizedString = e.Result.Text;
-									}
-
-									if ( !_radioChatterA.Complete )
-									{
-										_radioChatterA.Text = _recognizedString;
-										_radioChatterA.Complete = true;
-
-										_recognizedString = string.Empty;
-									}
-									else
-									{
-										_radioChatterB.Text = _recognizedString;
-										_radioChatterB.Complete = true;
-									}
-									
-									Debug.WriteLine( $"A - {_radioChatterA.Name}, {_radioChatterA.Complete}, {_radioChatterA.Text}" );
-									Debug.WriteLine( $"B - {_radioChatterB.Name}, {_radioChatterB.Complete}, {_radioChatterB.Text}" );
-								}
-							};
-
-							_speechRecognizer.SessionStopped += ( s, e ) =>
-							{
-								Debug.WriteLine( "_speechRecognizer.SessionStopped" );
-							};
-
-							_speechRecognizer.Canceled += ( s, e ) =>
-							{
-								Debug.WriteLine( $"_speechRecognizer.Canceled, reason = {e.Reason}" );
-							};
-
-							Log( "Speech to text engine started." );
-						}
-
-						return;
 					}
 				}
 
-				Log( "...could not find that audio capture device." );
+				if ( _settings.SelectedAudioCaptureDeviceName != NoneName )
+				{
+					Log( "...could not find that audio capture device." );
+				}
 			}
 		}
 
 		private static async Task InitializeAudioRenderDevice()
 		{
-			if ( ( _settings != null ) && ( _settings.SelectedAudioCaptureDeviceName != NoneName ) )
+			if ( _settings != null )
 			{
-				Log( $"Searching for audio render device \"{_settings.SelectedAudioRenderDeviceName}\"..." );
+				if ( _settings.SelectedAudioCaptureDeviceName != NoneName )
+				{
+					Log( $"Searching for audio render device \"{_settings.SelectedAudioRenderDeviceName}\"..." );
+				}
 
 				var deviceInformationList = await DeviceInformation.FindAllAsync( Windows.Devices.Enumeration.DeviceClass.AudioRender );
 
@@ -834,26 +874,32 @@ namespace iRacingSTTVR
 				{
 					_settings.ConnectedAudioRenderDevices.Add( deviceInformation.Name );
 
-					if ( deviceInformation.Name == _settings.SelectedAudioRenderDeviceName )
+					if ( _settings.SelectedAudioCaptureDeviceName != NoneName )
 					{
-						Log( "...found audio render device!" );
-
-						var match = Regex.Match( deviceInformation.Id, @"({[^#]*})" );
-
-						if ( match.Success )
+						if ( deviceInformation.Name == _settings.SelectedAudioRenderDeviceName )
 						{
-							var deviceId = match.Groups[ 1 ].Value;
+							Log( "...found audio render device!" );
 
-							var deviceEnumerator = new MMDeviceEnumerator();
+							var match = Regex.Match( deviceInformation.Id, @"({[^#]*})" );
 
-							_audioRenderDevice = deviceEnumerator.GetDevice( deviceId );
+							if ( match.Success )
+							{
+								var deviceId = match.Groups[ 1 ].Value;
+
+								var deviceEnumerator = new MMDeviceEnumerator();
+
+								_audioRenderDevice = deviceEnumerator.GetDevice( deviceId );
+							}
+
+							return;
 						}
-
-						return;
 					}
 				}
 
-				Log( "...could not find that audio render device." );
+				if ( _settings.SelectedAudioCaptureDeviceName != NoneName )
+				{
+					Log( "...could not find that audio render device." );
+				}
 			}
 		}
 

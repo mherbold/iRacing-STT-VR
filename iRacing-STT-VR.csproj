@@ -5,10 +5,15 @@
     <TargetFramework>net7.0-windows10.0.17763.0</TargetFramework>
     <RootNamespace>iRacingSTTVR</RootNamespace>
     <Nullable>enable</Nullable>
-    <UseWPF>False</UseWPF>
+    <UseWPF>True</UseWPF>
     <StartupObject>iRacingSTTVR.Program</StartupObject>
     <ApplicationIcon>virtual-reality.ico</ApplicationIcon>
+    <UseWindowsForms>False</UseWindowsForms>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="virtual-reality.png" />
+  </ItemGroup>
 
   <ItemGroup>
     <Content Include="virtual-reality.ico" />
@@ -48,6 +53,10 @@
   <ItemGroup>
     <ProjectReference Include="..\irsdkSharp\src\irsdkSharp.Serialization\irsdkSharp.Serialization.csproj" />
     <ProjectReference Include="..\irsdkSharp\src\irsdkSharp\irsdkSharp.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="virtual-reality.png" />
   </ItemGroup>
 
 </Project>
