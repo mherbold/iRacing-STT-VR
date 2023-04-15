@@ -36,10 +36,11 @@ using irsdkSharp.Serialization.Models.Data;
 using Vortice.DirectInput;
 
 using NAudio.CoreAudioApi;
-using System.Windows.Forms;
+using Vulkan;
+
+
 
 #endregion
-
 #region Settings
 
 [Serializable]
@@ -54,7 +55,7 @@ public class RadioChatter
 [Serializable]
 public class OverlaySettings
 {
-	public string CarScreenName { get; set; } = iRacingSTTVR.Program.NoneName;
+	public string CarScreenName { get; set; } = iRacingSTTVR.Program.None;
 	public float WidthInMeters { get; set; } = 0.25f;
 	public float X { get; set; } = 0.0f;
 	public float Y { get; set; } = 0.0f;
@@ -64,24 +65,24 @@ public class OverlaySettings
 [Serializable]
 public class Settings
 {
-	public string CognitiveServiceKey { get; set; } = iRacingSTTVR.Program.NoneName;
-	public string CognitiveServiceRegion { get; set; } = iRacingSTTVR.Program.NoneName;
-	public string CognitiveServiceLogFileName { get; set; } = iRacingSTTVR.Program.NoneName;
+	public string CognitiveServiceKey { get; set; } = iRacingSTTVR.Program.None;
+	public string CognitiveServiceRegion { get; set; } = iRacingSTTVR.Program.None;
+	public string CognitiveServiceLogFileName { get; set; } = iRacingSTTVR.Program.None;
 
 	public bool EnableProfanityFilter { get; set; } = true;
 
-	public string BackgroundTextureFileName = "background.png";
+	public string BackgroundTextureFileName { get; set; } = "background.png";
 
-	public string FontFileName = "RevolutionGothic_ExtraBold.otf";
+	public string FontFileName { get; set; } = "RevolutionGothic_ExtraBold.otf";
 	public uint FontSize { get; set; } = 40;
 
-	public string SelectedJoystickDeviceName { get; set; } = iRacingSTTVR.Program.NoneName;
+	public string SelectedJoystickDeviceName { get; set; } = iRacingSTTVR.Program.None;
 	public List<string> ConnectedJoystickDevices { get; set; } = new List<string>();
 
-	public string SelectedAudioCaptureDeviceName { get; set; } = iRacingSTTVR.Program.NoneName;
+	public string SelectedAudioCaptureDeviceName { get; set; } = iRacingSTTVR.Program.None;
 	public List<string> ConnectedAudioCaptureDevices { get; set; } = new List<string>();
 
-	public string SelectedAudioRenderDeviceName { get; set; } = iRacingSTTVR.Program.NoneName;
+	public string SelectedAudioRenderDeviceName { get; set; } = iRacingSTTVR.Program.None;
 	public List<string> ConnectedAudioRenderDevices { get; set; } = new List<string>();
 
 	public List<OverlaySettings> OverlaySettingsList { get; set; } = new List<OverlaySettings>();
@@ -101,7 +102,7 @@ namespace iRacingSTTVR
 		private const string OverlayKey = "iRacing-STT-VR";
 		private const string OverlayName = "iRacing Speech-to-Text VR";
 
-		public const string NoneName = "None";
+		public const string None = "None";
 
 		#endregion
 
@@ -115,26 +116,26 @@ namespace iRacingSTTVR
 
 		#region Settings properties
 
-		private static Settings? _settings;
-		private static OverlaySettings? _overlaySettings;
+		private static Settings? _settings = null;
+		private static OverlaySettings? _overlaySettings = null;
 
 		#endregion
 
 		#region Veldrid properties
 
-		private static Sdl2Window? _sdl2Window;
-		private static GraphicsDevice? _graphicsDevice;
-		private static CommandList? _commandList;
-		private static Framebuffer? _framebuffer;
-		private static BackendInfoD3D11? _backendInfo;
-		private static Texture? _backgroundTexture;
-		private static Texture? _renderTargetTexture;
+		private static Sdl2Window? _sdl2Window = null;
+		private static GraphicsDevice? _graphicsDevice = null;
+		private static CommandList? _commandList = null;
+		private static Framebuffer? _framebuffer = null;
+		private static BackendInfoD3D11? _backendInfo = null;
+		private static Texture? _backgroundTexture = null;
+		private static Texture? _renderTargetTexture = null;
 
 		#endregion
 
 		#region Dear ImGui properties
 
-		private static ImGuiRenderer? _renderer;
+		private static ImGuiRenderer? _renderer = null;
 		private static ImFontPtr _font;
 		private static nint _backgroundTextureId = 0;
 
@@ -151,6 +152,7 @@ namespace iRacingSTTVR
 
 		private static IRacingSDK? _iRacingSdk = null;
 		private static bool _isConnected = false;
+		private static bool _wasConnected = true;
 		private static int _sessionInfoUpdate = -1;
 		private static IRacingSessionModel? _session = null;
 		private static IRacingDataModel? _data = null;
@@ -178,13 +180,13 @@ namespace iRacingSTTVR
 
 		#region Joystick device properties
 
-		private static IDirectInputDevice8? _directInputDevice;
+		private static IDirectInputDevice8? _directInputDevice = null;
 
 		#endregion
 
 		#region Audio render device properties
 
-		private static MMDevice? _audioRenderDevice;
+		private static MMDevice? _audioRenderDevice = null;
 
 		#endregion
 
@@ -207,20 +209,7 @@ namespace iRacingSTTVR
 		#region Main
 
 		[STAThread]
-		static void Main()
-		{
-			#region Initialize main window
-
-			_mainWindow.Show();
-
-			#endregion
-
-			var task = MainAsync();
-
-			task.Wait();
-		}
-
-		static async Task MainAsync()
+		static void Main( string[] args )
 		{
 			#region Initialize logger
 
@@ -228,127 +217,101 @@ namespace iRacingSTTVR
 
 			#endregion
 
+			#region Load settings
+
+			LoadSettings();
+
+			if ( _settings == null )
+			{
+				return;
+			}
+
+			#endregion
+
+			#region Start main async thread
+
+			Task.Run( () => MainAsync() );
+
+			#endregion
+
+			#region Show settings dialog
+
+			_mainWindow.ShowDialog();
+
+			#endregion
+		}
+
+		static async Task MainAsync()
+		{
 			try
 			{
-				#region Load settings
-
-				LoadSettings();
-
-				if ( _settings == null )
-				{
-					return;
-				}
-
-				#endregion
-
-				#region Initialize Veldrid
-
-				InitializeVeldrid();
-
-				if ( ( _sdl2Window == null ) || ( _graphicsDevice == null ) || ( _commandList == null ) )
-				{
-					return;
-				}
-
-				#endregion
-
-				#region Initialize Dear ImGui
-
-				InitializeDearImGui();
-
-				if ( _renderer == null )
-				{
-					return;
-				}
-
-				#endregion
-
-				#region Initalize OpenVR
-
-				if ( !InitializeOpenVR() )
-				{
-					return;
-				}
-
-				#endregion
-
-				#region Initialize iRacing SDK
+				#region Connect to iRacing
 
 				_iRacingSdk = new IRacingSDK();
 
 				#endregion
 
-				#region Initialize joystick device
+				#region Initialize everything
 
-				InitializeJoystickDevice();
-
-				#endregion
-
-				#region Initialize HTTP listener
-
-				// Task.Run( () => InitializeHttpListener() );
-
-				#endregion
-
-				#region Initialize audio capture device
-
-				await InitializeAudioCaptureDevice();
-
-				#endregion
-
-				#region Initialize audio render device
-
-				await InitializeAudioRenderDevice();
+				await InitializeEverything();
 
 				#endregion
 
 				#region The main loop
 
-				Log( "Entering main loop." );
-
 				var stopwatch = Stopwatch.StartNew();
 
-				while ( _sdl2Window.Exists && !_mainWindow._isClosed )
+				if ( _sdl2Window != null )
 				{
-					#region Window event pump
-
-					var inputSnapshot = _sdl2Window.PumpEvents();
-
-					if ( !_sdl2Window.Exists )
+					while ( _sdl2Window.Exists && !_mainWindow._isClosed )
 					{
-						break;
+						#region Window event pump
+
+						var inputSnapshot = _sdl2Window.PumpEvents();
+
+						if ( !_sdl2Window.Exists )
+						{
+							break;
+						}
+
+						#endregion
+
+						if ( _mainWindow._applySettings )
+						{
+							_mainWindow._applySettings = false;
+
+							CleanUpEverything();
+
+							UpdateSettings();
+
+							_mainWindow.ClearStatusTextBox();
+
+							await InitializeEverything();
+
+							SaveSettings();
+						}
+						else
+						{
+							UpdateTelemetry();
+
+							ProcessJoystick();
+
+							UpdateVeldrid( stopwatch, inputSnapshot );
+
+							UpdateOverlay();
+						}
+
+						Thread.Sleep( 50 );
 					}
-
-					Application.DoEvents();
-
-					#endregion
-
-					UpdateTelemetry();
-
-					ProcessJoystick();
-
-					UpdateVeldrid( stopwatch, inputSnapshot );
-
-					UpdateOverlay();
-
-					Thread.Sleep( 50 );
 				}
 
 				// _keepRunning = false;
 
 				#endregion
 
-				#region Clean up
+				#region Clean up everything
 
-				Log( "Cleaning up." );
-
-				_graphicsDevice.WaitForIdle();
-
-				_renderer.Dispose();
-
-				_commandList.Dispose();
-
-				_graphicsDevice.Dispose();
+				CleanUpEverything();
 
 				#endregion
 
@@ -360,7 +323,7 @@ namespace iRacingSTTVR
 			}
 			catch ( Exception exception )
 			{
-				Log( $"Exception caught in: {exception.Message}\r\n\r\n{exception.StackTrace}" );
+				Log( $"Exception caught in: {exception.Message}\r\n\r\n{exception.StackTrace}\r\n\r\n" );
 			}
 		}
 
@@ -376,7 +339,7 @@ namespace iRacingSTTVR
 			{
 				var xmlSerializer = new XmlSerializer( typeof( Settings ) );
 
-				var fileStream = new FileStream( SettingsFileName, FileMode.Open );
+				var fileStream = new FileStream( _appDataFolder + SettingsFileName, FileMode.Open );
 
 				var deserializedObject = xmlSerializer.Deserialize( fileStream );
 
@@ -384,20 +347,45 @@ namespace iRacingSTTVR
 				{
 					_settings = (Settings) deserializedObject;
 
-					Log( "...settings loaded!" );
+					Log( " OK!\r\n" );
 				}
 				else
 				{
-					Log( "Something went wrong trying to load the settings file!" );
+					Log( " FAILED.\r\n" );
 				}
 
 				fileStream.Close();
 			}
 			else
 			{
-				Log( "...no settings file found - will create a new one." );
+				Log( " ...creating a new one.\r\n" );
 
 				_settings = new Settings();
+			}
+
+			if ( _settings != null )
+			{
+				_mainWindow._cognitiveServicesKey = ( _settings.CognitiveServiceKey == None ) ? "" : _settings.CognitiveServiceKey;
+				_mainWindow._cognitiveServicesRegion = ( _settings.CognitiveServiceRegion == None ) ? "" : _settings.CognitiveServiceRegion;
+				_mainWindow._cognitiveServiceLogFileName = ( _settings.CognitiveServiceLogFileName == None ) ? "" : _settings.CognitiveServiceLogFileName;
+
+				_mainWindow._enableProfanityFilter = _settings.EnableProfanityFilter;
+
+				_mainWindow._backgroundTextureFileName = ( _settings.BackgroundTextureFileName == None ) ? "" : _settings.BackgroundTextureFileName;
+
+				_mainWindow._fontFileName = ( _settings.FontFileName == None ) ? "" : _settings.FontFileName;
+				_mainWindow._fontSize = _settings.FontSize;
+
+				_mainWindow._selectedJoystickDeviceName = _settings.SelectedJoystickDeviceName;
+				_mainWindow._connectedJoystickDevices = _settings.ConnectedJoystickDevices;
+
+				_mainWindow._selectedAudioCaptureDeviceName = _settings.SelectedAudioCaptureDeviceName;
+				_mainWindow._connectedAudioCaptureDevices = _settings.ConnectedAudioCaptureDevices;
+
+				_mainWindow._selectedAudioRenderDeviceName = _settings.SelectedAudioRenderDeviceName;
+				_mainWindow._connectedAudioRenderDevices = _settings.ConnectedAudioRenderDevices;
+
+				_mainWindow.PushValues();
 			}
 		}
 
@@ -410,6 +398,27 @@ namespace iRacingSTTVR
 			xmlSerializer.Serialize( streamWriter, _settings );
 
 			streamWriter.Close();
+		}
+
+		private static void UpdateSettings()
+		{
+			if ( _settings != null )
+			{
+				_settings.CognitiveServiceKey = ( _mainWindow._cognitiveServicesKey == "" ) ? None : _mainWindow._cognitiveServicesKey;
+				_settings.CognitiveServiceRegion = ( _mainWindow._cognitiveServicesRegion == "" ) ? None : _mainWindow._cognitiveServicesRegion;
+				_settings.CognitiveServiceLogFileName = ( _mainWindow._cognitiveServiceLogFileName == "" ) ? None : _mainWindow._cognitiveServiceLogFileName;
+
+				_settings.EnableProfanityFilter = _mainWindow._enableProfanityFilter;
+
+				_settings.BackgroundTextureFileName = ( _mainWindow._backgroundTextureFileName == "" ) ? None : _mainWindow._backgroundTextureFileName;
+
+				_settings.FontFileName = ( _mainWindow._fontFileName == "" ) ? None : _mainWindow._fontFileName;
+				_settings.FontSize = _mainWindow._fontSize;
+
+				_settings.SelectedJoystickDeviceName = _mainWindow._selectedJoystickDeviceName;
+				_settings.SelectedAudioCaptureDeviceName = _mainWindow._selectedAudioCaptureDeviceName;
+				_settings.SelectedAudioRenderDeviceName = _mainWindow._selectedAudioRenderDeviceName;
+			}
 		}
 
 		#endregion
@@ -426,36 +435,191 @@ namespace iRacingSTTVR
 
 		private static void Log( string message )
 		{
-			File.AppendAllText( _appDataFolder + GeneralLogFileName, $"{message}\r\n" );
+			File.AppendAllText( _appDataFolder + GeneralLogFileName, message );
 
-			Debug.WriteLine( message );
+			_mainWindow.AddToStatusTextBox( message );
+		}
+
+		#endregion
+
+		#region Clean up function
+
+		private static void CleanUpEverything()
+		{
+			Log( "Cleaning up...\r\n" );
+
+			if ( _graphicsDevice != null )
+			{
+				_graphicsDevice.WaitForIdle();
+			}
+
+			_font = null;
+			_backgroundTextureId = 0;
+
+			if ( _audioRenderDevice != null )
+			{
+				_audioRenderDevice.Dispose();
+
+				_audioRenderDevice = null;
+			}
+			/*
+			if ( _speechRecognizer != null )
+			{
+				await _speechRecognizer.StopContinuousRecognitionAsync();
+
+				_speechRecognizer.Dispose();
+
+				_speechRecognizer = null;
+			}
+			*/
+			if ( _directInputDevice != null )
+			{
+				_directInputDevice.Dispose();
+
+				_directInputDevice = null;
+			}
+
+			if ( _framebuffer != null )
+			{
+				_framebuffer.Dispose();
+
+				_framebuffer = null;
+			}
+
+			if ( _renderTargetTexture != null )
+			{
+				_renderTargetTexture.Dispose();
+
+				_renderTargetTexture = null;
+			}
+
+			if ( _backgroundTexture != null )
+			{
+				_backgroundTexture.Dispose();
+
+				_backgroundTexture = null;
+			}
+
+			if ( _renderer != null )
+			{
+				_renderer.Dispose();
+
+				_renderer = null;
+			}
+
+			if ( _commandList != null )
+			{
+				_commandList.Dispose();
+
+				_commandList = null;
+			}
+
+			if ( _graphicsDevice != null )
+			{
+				_graphicsDevice.Dispose();
+
+				_graphicsDevice = null;
+			}
+
+			Log( " DONE.\r\n" );
 		}
 
 		#endregion
 
 		#region Initialize functions
 
+		private static async Task InitializeEverything()
+		{
+			#region Initialize Veldrid
+
+			InitializeVeldrid();
+
+			if ( ( _sdl2Window == null ) || ( _graphicsDevice == null ) || ( _commandList == null ) )
+			{
+				return;
+			}
+
+			#endregion
+
+			#region Initialize Dear ImGui
+
+			InitializeDearImGui();
+
+			if ( _renderer == null )
+			{
+				return;
+			}
+
+			#endregion
+
+			#region Initalize OpenVR
+
+			if ( !InitializeOpenVR() )
+			{
+				return;
+			}
+
+			#endregion
+
+			#region Initialize joystick device
+
+			InitializeJoystickDevice();
+
+			#endregion
+
+			#region Initialize HTTP listener
+
+			// Task.Run( () => InitializeHttpListener() );
+
+			#endregion
+
+			#region Initialize audio capture device
+
+			await InitializeAudioCaptureDevice();
+
+			#endregion
+
+			#region Initialize audio render device
+
+			await InitializeAudioRenderDevice();
+
+			#endregion
+		}
+
 		private static void InitializeVeldrid()
 		{
 			if ( _settings != null )
 			{
-				Log( "Creating window and graphics device..." );
+				if ( _sdl2Window == null )
+				{
+					Log( "Creating window..." );
 
-				var windowCreateInfo = new WindowCreateInfo( Sdl2Native.SDL_WINDOWPOS_CENTERED, Sdl2Native.SDL_WINDOWPOS_CENTERED, 320, 240, WindowState.Hidden, OverlayName );
+					var windowCreateInfo = new WindowCreateInfo( Sdl2Native.SDL_WINDOWPOS_CENTERED, Sdl2Native.SDL_WINDOWPOS_CENTERED, 320, 240, WindowState.Hidden, OverlayName );
+
+					_sdl2Window = VeldridStartup.CreateWindow( windowCreateInfo );
+
+					Log( " OK!\r\n" );
+				}
+
+				Log( "Creating graphics device..." );
 
 				var graphicsDeviceOptions = new GraphicsDeviceOptions( true );
 
-				VeldridStartup.CreateWindowAndGraphicsDevice( windowCreateInfo, graphicsDeviceOptions, GraphicsBackend.Direct3D11, out _sdl2Window, out _graphicsDevice );
+				_graphicsDevice = VeldridStartup.CreateGraphicsDevice( _sdl2Window, graphicsDeviceOptions, GraphicsBackend.Direct3D11 );
 
 				_graphicsDevice.GetD3D11Info( out _backendInfo );
 
 				_commandList = _graphicsDevice.ResourceFactory.CreateCommandList();
+
+				Log( " OK!\r\n" );
 
 				Log( "Loading background texture..." );
 
 				var imageSharpTexture = new ImageSharpTexture( _settings.BackgroundTextureFileName );
 
 				_backgroundTexture = imageSharpTexture.CreateDeviceTexture( _graphicsDevice, _graphicsDevice.ResourceFactory );
+
+				Log( " OK!\r\n" );
 
 				Log( "Creating render target texture and frame buffer..." );
 
@@ -468,6 +632,8 @@ namespace iRacingSTTVR
 				var framebufferDescription = new FramebufferDescription( null, new FramebufferAttachmentDescription[] { frameBufferAttachmentDescription } );
 
 				_framebuffer = _graphicsDevice.ResourceFactory.CreateFramebuffer( framebufferDescription );
+
+				Log( " OK!\r\n" );
 			}
 		}
 
@@ -479,15 +645,25 @@ namespace iRacingSTTVR
 
 				_renderer = new ImGuiRenderer( _graphicsDevice, _framebuffer.OutputDescription, (int) _framebuffer.Width, (int) _framebuffer.Height );
 
+				Log( " OK!\r\n" );
+
+				Log( "Adding font..." );
+
 				_font = ImGui.GetIO().Fonts.AddFontFromFileTTF( _settings.FontFileName, _settings.FontSize );
 
 				_renderer.RecreateFontDeviceTexture();
+
+				Log( " OK!\r\n" );
+
+				Log( "Binding background texture to Dear ImGui..." );
 
 				var textureViewDescription = new TextureViewDescription( _backgroundTexture, PixelFormat.R8_G8_B8_A8_UNorm_SRgb );
 
 				var textureView = _graphicsDevice.ResourceFactory.CreateTextureView( textureViewDescription );
 
 				_backgroundTextureId = _renderer.GetOrCreateImGuiBinding( _graphicsDevice.ResourceFactory, textureView );
+
+				Log( " OK!\r\n" );
 			}
 		}
 
@@ -503,7 +679,7 @@ namespace iRacingSTTVR
 
 				if ( evrInitError != EVRInitError.None )
 				{
-					Log( $"OpenVR.Init failed with error: {evrInitError}" );
+					Log( $"\r\n\r\nOpenVR.Init failed with error: {evrInitError}\r\n\r\n" );
 
 					return false;
 				}
@@ -518,14 +694,14 @@ namespace iRacingSTTVR
 
 						if ( evrOverlayError != EVROverlayError.None )
 						{
-							Log( $"OpenVR.Overlay.CreateOverlay failed with error: {evrOverlayError}" );
+							Log( $"\r\n\r\nOpenVR.Overlay.CreateOverlay failed with error: {evrOverlayError}\r\n\r\n" );
 
 							return false;
 						}
 					}
 					else
 					{
-						Log( $"OpenVR.Overlay.FindOverlay failed with error: {evrOverlayError}" );
+						Log( $"\r\n\r\nOpenVR.Overlay.FindOverlay failed with error: {evrOverlayError}\r\n\r\n" );
 
 						return false;
 					}
@@ -535,7 +711,7 @@ namespace iRacingSTTVR
 
 				if ( evrOverlayError != EVROverlayError.None )
 				{
-					Log( $"OpenVR.Overlay.ShowOverlay failed with error: {evrOverlayError}" );
+					Log( $"\r\n\r\nOpenVR.Overlay.ShowOverlay failed with error: {evrOverlayError}\r\n\r\n" );
 
 					return false;
 				}
@@ -546,6 +722,8 @@ namespace iRacingSTTVR
 					eType = ETextureType.DirectX,
 					eColorSpace = EColorSpace.Gamma
 				};
+
+				Log( " OK!\r\n" );
 			}
 
 			return true;
@@ -555,41 +733,55 @@ namespace iRacingSTTVR
 		{
 			if ( _settings != null )
 			{
-				if ( _settings.SelectedJoystickDeviceName != NoneName )
-				{
-					Log( $"Searching for joystick device \"{_settings.SelectedJoystickDeviceName}\"..." );
-				}
+				Log( "Scanning for joystick devices..." );
+
+				DeviceInstance? selectedDevice = null;
 
 				var directInput = DInput.DirectInput8Create();
 
 				var deviceList = directInput.GetDevices( DeviceType.Joystick, DeviceEnumerationFlags.AttachedOnly );
 
 				_settings.ConnectedJoystickDevices.Clear();
+				_settings.ConnectedJoystickDevices.Add( None );
 
 				foreach ( var device in deviceList )
 				{
 					_settings.ConnectedJoystickDevices.Add( device.ProductName );
 
-					if ( _settings.SelectedJoystickDeviceName != NoneName )
+					if ( ( _settings.SelectedJoystickDeviceName != None ) && ( device.ProductName == _settings.SelectedJoystickDeviceName ) )
 					{
-						if ( device.ProductName == _settings.SelectedJoystickDeviceName )
-						{
-							Log( "...found joystick device!" );
-
-							_directInputDevice = directInput.CreateDevice( device.InstanceGuid );
-
-							_directInputDevice.SetCooperativeLevel( IntPtr.Zero, CooperativeLevel.NonExclusive | CooperativeLevel.Foreground );
-
-							_directInputDevice.SetDataFormat<RawJoystickState>();
-
-							return;
-						}
+						selectedDevice = device;
 					}
 				}
 
-				if ( _settings.SelectedJoystickDeviceName != NoneName )
+				_mainWindow._connectedJoystickDevices = _settings.ConnectedJoystickDevices;
+
+				_mainWindow.PushValues();
+
+				Log( " OK!\r\n" );
+
+				if ( _settings.SelectedJoystickDeviceName != None )
 				{
-					Log( "...could not find that joystick device." );
+					if ( selectedDevice == null )
+					{
+						Log( "Note: the selected joystick device was not found.\r\n" );
+					}
+					else if ( _directInputDevice != null )
+					{
+						Log( "Note: we already have a direct input device initialized.\r\n" );
+					}
+					else
+					{
+						Log( "Initializing the selected joystick device..." );
+
+						_directInputDevice = directInput.CreateDevice( selectedDevice.InstanceGuid );
+
+						_directInputDevice.SetCooperativeLevel( IntPtr.Zero, CooperativeLevel.NonExclusive | CooperativeLevel.Foreground );
+
+						_directInputDevice.SetDataFormat<RawJoystickState>();
+
+						Log( " OK!\r\n" );
+					}
 				}
 			}
 		}
@@ -720,139 +912,154 @@ namespace iRacingSTTVR
 		{
 			if ( ( _settings != null ) )
 			{
-				if ( _settings.SelectedAudioCaptureDeviceName != NoneName )
-				{
-					Log( $"Searching for audio capture device \"{_settings.SelectedAudioCaptureDeviceName}\"..." );
-				}
+				Log( "Scanning for audio capture devices..." );
+
+				DeviceInformation? selectedDeviceInformation = null;
 
 				var deviceInformationList = await DeviceInformation.FindAllAsync( Windows.Devices.Enumeration.DeviceClass.AudioCapture );
 
 				_settings.ConnectedAudioCaptureDevices.Clear();
+				_settings.ConnectedAudioCaptureDevices.Add( None );
 
 				foreach ( var deviceInformation in deviceInformationList )
 				{
 					_settings.ConnectedAudioCaptureDevices.Add( deviceInformation.Name );
 
-					if ( _settings.SelectedAudioCaptureDeviceName != NoneName )
+					if ( ( _settings.SelectedAudioCaptureDeviceName != None ) && ( deviceInformation.Name == _settings.SelectedAudioCaptureDeviceName ) )
 					{
-						if ( deviceInformation.Name == _settings.SelectedAudioCaptureDeviceName )
+						selectedDeviceInformation = deviceInformation;
+					}
+
+					_mainWindow._connectedAudioCaptureDevices = _settings.ConnectedAudioCaptureDevices;
+
+					_mainWindow.PushValues();
+				}
+
+				Log( " OK!\r\n" );
+
+				if ( _settings.SelectedAudioCaptureDeviceName != None )
+				{
+					if ( selectedDeviceInformation == null )
+					{
+						Log( "Note: the selected audio capture device was not found.\r\n" );
+					}
+					else if ( _speechRecognizer != null )
+					{
+						Log( "Note: due to a bug in the Cognitive Service API you must restart this app if you want to change the selected audio capture device.\r\n" );
+					}
+					else if ( ( _settings.CognitiveServiceKey == None ) || ( _settings.CognitiveServiceRegion == None ) )
+					{
+						Log( "Note: we found the selected audio capture device but the Cognitive Service API has not been configured.\r\n" );
+					}
+					else
+					{
+						Log( "Initializing the selected audio capture device and speech services..." );
+
+						SpeechConfig speechConfig;
+
+						try
 						{
-							Log( "...found audio capture device!" );
+							speechConfig = SpeechConfig.FromSubscription( _settings.CognitiveServiceKey, _settings.CognitiveServiceRegion );
 
-							if ( ( _settings.CognitiveServiceKey != null ) && ( _settings.CognitiveServiceRegion != null ) )
+							speechConfig.SpeechRecognitionLanguage = "en-US";
+							speechConfig.SetProfanity( _settings.EnableProfanityFilter ? ProfanityOption.Masked : ProfanityOption.Raw );
+
+							if ( _settings.CognitiveServiceLogFileName != None )
 							{
-								SpeechConfig speechConfig;
+								speechConfig.SetProperty( PropertyId.Speech_LogFilename, _appDataFolder + _settings.CognitiveServiceLogFileName );
+							}
 
-								try
+							var match = Regex.Match( selectedDeviceInformation.Id, @"({[^#]*})" );
+
+							if ( match.Success )
+							{
+								var deviceId = match.Groups[ 1 ].Value;
+
+								using var audioConfig = AudioConfig.FromMicrophoneInput( deviceId );
+
+								_speechRecognizer = new SpeechRecognizer( speechConfig, audioConfig );
+
+								_speechRecognizer.Recognizing += ( s, e ) =>
 								{
-									speechConfig = SpeechConfig.FromSubscription( _settings.CognitiveServiceKey, _settings.CognitiveServiceRegion );
-								}
-								catch
-								{
-									Log( "Cognitive speech services could not be initialized." );
+									// Debug.WriteLine( $"_speechRecognizer.Recognizing, e.Result.Text = {e.Result.Text}" );
 
-									return;
-								}
+									_speechTick = 0;
 
-								speechConfig.SpeechRecognitionLanguage = "en-US";
-								speechConfig.SetProfanity( _settings.EnableProfanityFilter ? ProfanityOption.Masked : ProfanityOption.Raw );
-
-								if ( _settings.CognitiveServiceLogFileName != NoneName )
-								{
-									speechConfig.SetProperty( PropertyId.Speech_LogFilename, _appDataFolder + _settings.CognitiveServiceLogFileName );
-								}
-
-								var match = Regex.Match( deviceInformation.Id, @"({[^#]*})" );
-
-								if ( match.Success )
-								{
-									var deviceId = match.Groups[ 1 ].Value;
-
-									using var audioConfig = AudioConfig.FromMicrophoneInput( deviceId );
-
-									_speechRecognizer = new SpeechRecognizer( speechConfig, audioConfig );
-
-									_speechRecognizer.Recognizing += ( s, e ) =>
+									if ( !_radioChatterA.Complete )
 									{
-										// Debug.WriteLine( $"_speechRecognizer.Recognizing, e.Result.Text = {e.Result.Text}" );
+										_radioTick = 0;
 
-										_speechTick = 0;
+										_radioChatterA.Text = $"{_recognizedString} {e.Result.Text}";
+									}
+									else
+									{
+										_radioChatterB.Text = $"{_recognizedString} {e.Result.Text}";
+										_radioChatterB.Complete = false;
+									}
 
-										if ( !_radioChatterA.Complete )
+									// Debug.WriteLine( $"A - {_radioChatterA.Name}, {_radioChatterA.Complete}, {_radioChatterA.Text}" );
+									// Debug.WriteLine( $"B - {_radioChatterB.Name}, {_radioChatterB.Complete}, {_radioChatterB.Text}" );
+								};
+
+								_speechRecognizer.Recognized += ( s, e ) =>
+								{
+									// Debug.WriteLine( $"_speechRecognizer.Recognized, e.Result.Reason = {e.Result.Reason}, e.Result.Text = {e.Result.Text}" );
+
+									_speechTick = 0;
+
+									if ( e.Result.Reason == ResultReason.RecognizedSpeech )
+									{
+										// Debug.WriteLine( $"Recognized speech: {e.Result.Text}" );
+
+										if ( _recognizedString.Length > 0 )
 										{
-											_radioTick = 0;
-
-											_radioChatterA.Text = $"{_recognizedString} {e.Result.Text}";
+											_recognizedString += $" {e.Result.Text}";
 										}
 										else
 										{
-											_radioChatterB.Text = $"{_recognizedString} {e.Result.Text}";
-											_radioChatterB.Complete = false;
+											_recognizedString = e.Result.Text;
 										}
 
-										Debug.WriteLine( $"A - {_radioChatterA.Name}, {_radioChatterA.Complete}, {_radioChatterA.Text}" );
-										Debug.WriteLine( $"B - {_radioChatterB.Name}, {_radioChatterB.Complete}, {_radioChatterB.Text}" );
-									};
-
-									_speechRecognizer.Recognized += ( s, e ) =>
-									{
-										Debug.WriteLine( $"_speechRecognizer.Recognized, e.Result.Reason = {e.Result.Reason}, e.Result.Text = {e.Result.Text}" );
-
-										_speechTick = 0;
-
-										if ( e.Result.Reason == ResultReason.RecognizedSpeech )
+										if ( !_radioChatterA.Complete )
 										{
-											// Debug.WriteLine( $"Recognized speech: {e.Result.Text}" );
+											_radioChatterA.Text = _recognizedString;
+											_radioChatterA.Complete = true;
 
-											if ( _recognizedString.Length > 0 )
-											{
-												_recognizedString += $" {e.Result.Text}";
-											}
-											else
-											{
-												_recognizedString = e.Result.Text;
-											}
-
-											if ( !_radioChatterA.Complete )
-											{
-												_radioChatterA.Text = _recognizedString;
-												_radioChatterA.Complete = true;
-
-												_recognizedString = string.Empty;
-											}
-											else
-											{
-												_radioChatterB.Text = _recognizedString;
-												_radioChatterB.Complete = true;
-											}
-
-											Debug.WriteLine( $"A - {_radioChatterA.Name}, {_radioChatterA.Complete}, {_radioChatterA.Text}" );
-											Debug.WriteLine( $"B - {_radioChatterB.Name}, {_radioChatterB.Complete}, {_radioChatterB.Text}" );
+											_recognizedString = string.Empty;
 										}
-									};
+										else
+										{
+											_radioChatterB.Text = _recognizedString;
+											_radioChatterB.Complete = true;
+										}
 
-									_speechRecognizer.SessionStopped += ( s, e ) =>
-									{
-										Debug.WriteLine( "_speechRecognizer.SessionStopped" );
-									};
+										// Debug.WriteLine( $"A - {_radioChatterA.Name}, {_radioChatterA.Complete}, {_radioChatterA.Text}" );
+										// Debug.WriteLine( $"B - {_radioChatterB.Name}, {_radioChatterB.Complete}, {_radioChatterB.Text}" );
+									}
+								};
 
-									_speechRecognizer.Canceled += ( s, e ) =>
-									{
-										Debug.WriteLine( $"_speechRecognizer.Canceled, reason = {e.Reason}" );
-									};
+								_speechRecognizer.SessionStopped += ( s, e ) =>
+								{
+									// Debug.WriteLine( "_speechRecognizer.SessionStopped" );
+								};
 
-									Log( "Speech to text engine started." );
-								}
+								_speechRecognizer.Canceled += ( s, e ) =>
+								{
+									// Debug.WriteLine( $"_speechRecognizer.Canceled, reason = {e.Reason}" );
+								};
+
+								Log( " OK!\r\n" );
 							}
-
-							return;
+							else
+							{
+								Log( " FAILED (no regex match).\r\n" );
+							}
+						}
+						catch ( Exception exception )
+						{
+							Log( $" FAILED.\r\n\r\nException thrown when trying to initialize speech services:\r\n\r\n{exception.Message}\r\n\r\n" );
 						}
 					}
-				}
-
-				if ( _settings.SelectedAudioCaptureDeviceName != NoneName )
-				{
-					Log( "...could not find that audio capture device." );
 				}
 			}
 		}
@@ -861,44 +1068,62 @@ namespace iRacingSTTVR
 		{
 			if ( _settings != null )
 			{
-				if ( _settings.SelectedAudioCaptureDeviceName != NoneName )
-				{
-					Log( $"Searching for audio render device \"{_settings.SelectedAudioRenderDeviceName}\"..." );
-				}
+				Log( "Scanning for audio render devices.." );
+
+				DeviceInformation? selectedDeviceInformation = null;
 
 				var deviceInformationList = await DeviceInformation.FindAllAsync( Windows.Devices.Enumeration.DeviceClass.AudioRender );
 
 				_settings.ConnectedAudioRenderDevices.Clear();
+				_settings.ConnectedAudioRenderDevices.Add( None );
 
 				foreach ( var deviceInformation in deviceInformationList )
 				{
 					_settings.ConnectedAudioRenderDevices.Add( deviceInformation.Name );
 
-					if ( _settings.SelectedAudioCaptureDeviceName != NoneName )
+					if ( ( _settings.SelectedAudioCaptureDeviceName != None ) && ( deviceInformation.Name == _settings.SelectedAudioRenderDeviceName ) )
 					{
-						if ( deviceInformation.Name == _settings.SelectedAudioRenderDeviceName )
-						{
-							Log( "...found audio render device!" );
-
-							var match = Regex.Match( deviceInformation.Id, @"({[^#]*})" );
-
-							if ( match.Success )
-							{
-								var deviceId = match.Groups[ 1 ].Value;
-
-								var deviceEnumerator = new MMDeviceEnumerator();
-
-								_audioRenderDevice = deviceEnumerator.GetDevice( deviceId );
-							}
-
-							return;
-						}
+						selectedDeviceInformation = deviceInformation;
 					}
 				}
 
-				if ( _settings.SelectedAudioCaptureDeviceName != NoneName )
+				_mainWindow._connectedAudioRenderDevices = _settings.ConnectedAudioRenderDevices;
+
+				_mainWindow.PushValues();
+
+				Log( " OK!\r\n" );
+
+				if ( _settings.SelectedAudioRenderDeviceName != None )
 				{
-					Log( "...could not find that audio render device." );
+					if ( selectedDeviceInformation == null )
+					{
+						Log( "Note: the selected audio render device was not found.\r\n" );
+					}
+					else if ( _audioRenderDevice != null )
+					{
+						Log( "Note: we already have an audio render device initialized.\r\n" );
+					}
+					else
+					{
+						Log( "Initializing the selected audio render device..." );
+
+						var match = Regex.Match( selectedDeviceInformation.Id, @"({[^#]*})" );
+
+						if ( match.Success )
+						{
+							var deviceId = match.Groups[ 1 ].Value;
+
+							var deviceEnumerator = new MMDeviceEnumerator();
+
+							_audioRenderDevice = deviceEnumerator.GetDevice( deviceId );
+
+							Log( " OK!\r\n" );
+						}
+						else
+						{
+							Log( " FAILED (no regex match).\r\n" );
+						}
+					}
 				}
 			}
 		}
@@ -915,6 +1140,8 @@ namespace iRacingSTTVR
 
 				if ( _isConnected )
 				{
+					_wasConnected = true;
+
 					if ( _sessionInfoUpdate != _iRacingSdk.Header.SessionInfoUpdate )
 					{
 						_sessionInfoUpdate = _iRacingSdk.Header.SessionInfoUpdate;
@@ -1112,34 +1339,39 @@ namespace iRacingSTTVR
 				}
 				else
 				{
-					_overlaySettings = null;
-
-					foreach ( var overlaySettings in _settings.OverlaySettingsList )
+					if ( _wasConnected )
 					{
-						if ( overlaySettings.CarScreenName == NoneName )
+						_wasConnected = false;
+
+						_overlaySettings = null;
+
+						foreach ( var overlaySettings in _settings.OverlaySettingsList )
 						{
-							_overlaySettings = overlaySettings;
+							if ( overlaySettings.CarScreenName == None )
+							{
+								_overlaySettings = overlaySettings;
 
-							break;
+								break;
+							}
 						}
+
+						if ( _overlaySettings == null )
+						{
+							var overlaySettings = new OverlaySettings();
+
+							_settings.OverlaySettingsList.Add( overlaySettings );
+
+							_overlaySettings = overlaySettings;
+						}
+
+						_sessionId = 0;
+						_subSessionId = 0;
+
+						_radioChatterA = new();
+						_radioChatterB = new();
+
+						_trackPositionRelativeToLeadCar = 0.0f;
 					}
-
-					if ( _overlaySettings == null )
-					{
-						var overlaySettings = new OverlaySettings();
-
-						_settings.OverlaySettingsList.Add( overlaySettings );
-
-						_overlaySettings = overlaySettings;
-					}
-
-					_sessionId = 0;
-					_subSessionId = 0;
-
-					_radioChatterA = new();
-					_radioChatterB = new();
-
-					_trackPositionRelativeToLeadCar = 0.0f;
 				}
 			}
 		}
@@ -1438,7 +1670,7 @@ namespace iRacingSTTVR
 
 				if ( evrOverlayError != EVROverlayError.None )
 				{
-					Log( $"OpenVR.Overlay.SetOverlayWidthInMeters failed with error: {evrOverlayError}" );
+					Log( $"\r\n\r\nOpenVR.Overlay.SetOverlayWidthInMeters failed with error: {evrOverlayError}\r\n\r\n" );
 				}
 				else
 				{
@@ -1446,7 +1678,7 @@ namespace iRacingSTTVR
 
 					if ( evrOverlayError != EVROverlayError.None )
 					{
-						Log( $"OpenVR.Overlay.SetOverlayTexture failed with error: {evrOverlayError}" );
+						Log( $"\r\n\r\nOpenVR.Overlay.SetOverlayTexture failed with error: {evrOverlayError}\r\n\r\n" );
 					}
 					else
 					{
@@ -1463,7 +1695,7 @@ namespace iRacingSTTVR
 
 						if ( evrOverlayError != EVROverlayError.None )
 						{
-							Log( $"OpenVR.Overlay.SetOverlayTextureBounds failed with error: {evrOverlayError}" );
+							Log( $"\r\n\r\nOpenVR.Overlay.SetOverlayTextureBounds failed with error: {evrOverlayError}\r\n\r\n" );
 						}
 						else
 						{
@@ -1489,7 +1721,7 @@ namespace iRacingSTTVR
 
 							if ( evrOverlayError != EVROverlayError.None )
 							{
-								Log( $"OpenVR.Overlay.SetOverlayTransformAbsolute failed with error: {evrOverlayError}" );
+								Log( $"\r\n\r\nOpenVR.Overlay.SetOverlayTransformAbsolute failed with error: {evrOverlayError}\r\n\r\n" );
 							}
 						}
 					}
