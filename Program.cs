@@ -36,11 +36,9 @@ using irsdkSharp.Serialization.Models.Data;
 using Vortice.DirectInput;
 
 using NAudio.CoreAudioApi;
-using Vulkan;
-
-
 
 #endregion
+
 #region Settings
 
 [Serializable]
@@ -152,7 +150,7 @@ namespace iRacingSTTVR
 
 		private static IRacingSDK? _iRacingSdk = null;
 		private static bool _isConnected = false;
-		private static bool _wasConnected = true;
+		private static bool _wasConnected = false;
 		private static int _sessionInfoUpdate = -1;
 		private static IRacingSessionModel? _session = null;
 		private static IRacingDataModel? _data = null;
@@ -192,7 +190,8 @@ namespace iRacingSTTVR
 
 		#region Misc properties
 
-		private static string _appDataFolder = Environment.GetFolderPath( Environment.SpecialFolder.ApplicationData ) + "\\iRacing-STT-VR\\";
+		public static string _appDataFolder = Environment.GetFolderPath( Environment.SpecialFolder.ApplicationData ) + "\\iRacing-STT-VR\\";
+		public static string _documentsFolder = Environment.GetFolderPath( Environment.SpecialFolder.MyDocuments );
 
 		private static int _blinkTick = 0;
 		private static float _trackPositionRelativeToLeadCar = 0.0f;
@@ -254,6 +253,12 @@ namespace iRacingSTTVR
 				#region Initialize everything
 
 				await InitializeEverything();
+
+				#endregion
+
+				#region Reset the overlay
+
+				ResetOverlay();
 
 				#endregion
 
@@ -323,7 +328,7 @@ namespace iRacingSTTVR
 			}
 			catch ( Exception exception )
 			{
-				Log( $"Exception caught in: {exception.Message}\r\n\r\n{exception.StackTrace}\r\n\r\n" );
+				Log( $"Exception caught!\r\n\r\n{exception.Message}\r\n\r\n{exception.StackTrace}\r\n\r\n" );
 			}
 		}
 
@@ -442,7 +447,7 @@ namespace iRacingSTTVR
 
 		#endregion
 
-		#region Clean up function
+		#region Clean up functions
 
 		private static void CleanUpEverything()
 		{
@@ -477,6 +482,13 @@ namespace iRacingSTTVR
 				_directInputDevice.Dispose();
 
 				_directInputDevice = null;
+			}
+
+			if ( _overlayHandle != 0 )
+			{
+				OpenVR.Overlay.DestroyOverlay( _overlayHandle );
+
+				_overlayHandle = 0;
 			}
 
 			if ( _framebuffer != null )
@@ -524,6 +536,41 @@ namespace iRacingSTTVR
 			Log( " DONE.\r\n" );
 		}
 
+		private static void ResetOverlay()
+		{
+			if ( _settings != null )
+			{
+				_overlaySettings = null;
+
+				foreach ( var overlaySettings in _settings.OverlaySettingsList )
+				{
+					if ( overlaySettings.CarScreenName == None )
+					{
+						_overlaySettings = overlaySettings;
+
+						break;
+					}
+				}
+
+				if ( _overlaySettings == null )
+				{
+					var overlaySettings = new OverlaySettings();
+
+					_settings.OverlaySettingsList.Add( overlaySettings );
+
+					_overlaySettings = overlaySettings;
+				}
+
+				_sessionId = 0;
+				_subSessionId = 0;
+
+				_radioChatterA = new();
+				_radioChatterB = new();
+
+				_trackPositionRelativeToLeadCar = 0.0f;
+			}
+		}
+
 		#endregion
 
 		#region Initialize functions
@@ -554,10 +601,7 @@ namespace iRacingSTTVR
 
 			#region Initalize OpenVR
 
-			if ( !InitializeOpenVR() )
-			{
-				return;
-			}
+			InitializeOpenVR();
 
 			#endregion
 
@@ -667,7 +711,7 @@ namespace iRacingSTTVR
 			}
 		}
 
-		private static bool InitializeOpenVR()
+		private static void InitializeOpenVR()
 		{
 			if ( _backendInfo != null )
 			{
@@ -681,7 +725,7 @@ namespace iRacingSTTVR
 				{
 					Log( $"\r\n\r\nOpenVR.Init failed with error: {evrInitError}\r\n\r\n" );
 
-					return false;
+					return;
 				}
 
 				var evrOverlayError = OpenVR.Overlay.FindOverlay( OverlayKey, ref _overlayHandle );
@@ -696,14 +740,14 @@ namespace iRacingSTTVR
 						{
 							Log( $"\r\n\r\nOpenVR.Overlay.CreateOverlay failed with error: {evrOverlayError}\r\n\r\n" );
 
-							return false;
+							return;
 						}
 					}
 					else
 					{
 						Log( $"\r\n\r\nOpenVR.Overlay.FindOverlay failed with error: {evrOverlayError}\r\n\r\n" );
 
-						return false;
+						return;
 					}
 				}
 
@@ -713,7 +757,7 @@ namespace iRacingSTTVR
 				{
 					Log( $"\r\n\r\nOpenVR.Overlay.ShowOverlay failed with error: {evrOverlayError}\r\n\r\n" );
 
-					return false;
+					return;
 				}
 
 				_openVrTexture = new Texture_t
@@ -725,8 +769,6 @@ namespace iRacingSTTVR
 
 				Log( " OK!\r\n" );
 			}
-
-			return true;
 		}
 
 		private static void InitializeJoystickDevice()
@@ -966,7 +1008,7 @@ namespace iRacingSTTVR
 
 							if ( _settings.CognitiveServiceLogFileName != None )
 							{
-								speechConfig.SetProperty( PropertyId.Speech_LogFilename, _appDataFolder + _settings.CognitiveServiceLogFileName );
+								speechConfig.SetProperty( PropertyId.Speech_LogFilename, _settings.CognitiveServiceLogFileName );
 							}
 
 							var match = Regex.Match( selectedDeviceInformation.Id, @"({[^#]*})" );
@@ -978,6 +1020,34 @@ namespace iRacingSTTVR
 								using var audioConfig = AudioConfig.FromMicrophoneInput( deviceId );
 
 								_speechRecognizer = new SpeechRecognizer( speechConfig, audioConfig );
+
+								_speechRecognizer.SessionStarted += ( s, e ) =>
+								{
+									// Debug.WriteLine( "_speechRecognizer.SessionStarted" );
+
+									_mainWindow._statusB = true;
+
+									_mainWindow.UpdateStatusLights();
+								};
+
+								_speechRecognizer.SessionStopped += ( s, e ) =>
+								{
+									// Debug.WriteLine( "_speechRecognizer.SessionStopped" );
+
+									_mainWindow._statusB = false;
+
+									_mainWindow.UpdateStatusLights();
+								};
+
+								_speechRecognizer.SpeechStartDetected += ( s, e ) =>
+								{
+									// Debug.WriteLine( "_speechRecognizer.SpeechStartDetected" );
+								};
+
+								_speechRecognizer.SpeechEndDetected += ( s, e ) =>
+								{
+									// Debug.WriteLine( "_speechRecognizer.SpeechEndDetected" );
+								};
 
 								_speechRecognizer.Recognizing += ( s, e ) =>
 								{
@@ -1036,11 +1106,6 @@ namespace iRacingSTTVR
 										// Debug.WriteLine( $"A - {_radioChatterA.Name}, {_radioChatterA.Complete}, {_radioChatterA.Text}" );
 										// Debug.WriteLine( $"B - {_radioChatterB.Name}, {_radioChatterB.Complete}, {_radioChatterB.Text}" );
 									}
-								};
-
-								_speechRecognizer.SessionStopped += ( s, e ) =>
-								{
-									// Debug.WriteLine( "_speechRecognizer.SessionStopped" );
 								};
 
 								_speechRecognizer.Canceled += ( s, e ) =>
@@ -1140,7 +1205,14 @@ namespace iRacingSTTVR
 
 				if ( _isConnected )
 				{
-					_wasConnected = true;
+					if ( !_wasConnected )
+					{
+						_wasConnected = true;
+
+						_mainWindow._statusA = true;
+
+						_mainWindow.UpdateStatusLights();
+					}
 
 					if ( _sessionInfoUpdate != _iRacingSdk.Header.SessionInfoUpdate )
 					{
@@ -1196,7 +1268,7 @@ namespace iRacingSTTVR
 						{
 							if ( !_audioRenderDevice.AudioEndpointVolume.Mute )
 							{
-								Debug.WriteLine( "Muting audio render device." );
+								// Debug.WriteLine( "Muting audio render device." );
 
 								_audioRenderDevice.AudioEndpointVolume.Mute = true;
 							}
@@ -1205,7 +1277,7 @@ namespace iRacingSTTVR
 						{
 							if ( _audioRenderDevice.AudioEndpointVolume.Mute )
 							{
-								Debug.WriteLine( "Un-muting audio render device." );
+								// Debug.WriteLine( "Un-muting audio render device." );
 
 								_audioRenderDevice.AudioEndpointVolume.Mute = false;
 							}
@@ -1224,7 +1296,7 @@ namespace iRacingSTTVR
 
 									if ( _speechTick > 60 )
 									{
-										Debug.WriteLine( "Stopping continuous speech recognition..." );
+										// Debug.WriteLine( "Stopping continuous speech recognition..." );
 
 										_speechRecognizer.StopContinuousRecognitionAsync();
 
@@ -1281,15 +1353,15 @@ namespace iRacingSTTVR
 										Complete = true
 									};
 
-									Debug.WriteLine( $"Speaker switched to {name}." );
+									// Debug.WriteLine( $"Speaker switched to {name}." );
 
-									Debug.WriteLine( $"A - {_radioChatterA.Name}, {_radioChatterA.Complete}, {_radioChatterA.Text}" );
-									Debug.WriteLine( $"B - {_radioChatterB.Name}, {_radioChatterB.Complete}, {_radioChatterB.Text}" );
+									// Debug.WriteLine( $"A - {_radioChatterA.Name}, {_radioChatterA.Complete}, {_radioChatterA.Text}" );
+									// Debug.WriteLine( $"B - {_radioChatterB.Name}, {_radioChatterB.Complete}, {_radioChatterB.Text}" );
 								}
 
 								if ( !_speechRecognizerIsRunning )
 								{
-									Debug.WriteLine( "Starting continuous speech recognition..." );
+									// Debug.WriteLine( "Starting continuous speech recognition..." );
 
 									_speechRecognizer.StartContinuousRecognitionAsync();
 
@@ -1343,34 +1415,11 @@ namespace iRacingSTTVR
 					{
 						_wasConnected = false;
 
-						_overlaySettings = null;
+						_mainWindow._statusA = false;
 
-						foreach ( var overlaySettings in _settings.OverlaySettingsList )
-						{
-							if ( overlaySettings.CarScreenName == None )
-							{
-								_overlaySettings = overlaySettings;
+						_mainWindow.UpdateStatusLights();
 
-								break;
-							}
-						}
-
-						if ( _overlaySettings == null )
-						{
-							var overlaySettings = new OverlaySettings();
-
-							_settings.OverlaySettingsList.Add( overlaySettings );
-
-							_overlaySettings = overlaySettings;
-						}
-
-						_sessionId = 0;
-						_subSessionId = 0;
-
-						_radioChatterA = new();
-						_radioChatterB = new();
-
-						_trackPositionRelativeToLeadCar = 0.0f;
+						ResetOverlay();
 					}
 				}
 			}
@@ -1664,7 +1713,7 @@ namespace iRacingSTTVR
 
 		private static void UpdateOverlay()
 		{
-			if ( _overlaySettings != null )
+			if ( ( _overlaySettings != null ) && ( _overlayHandle != 0 ) )
 			{
 				var evrOverlayError = OpenVR.Overlay.SetOverlayWidthInMeters( _overlayHandle, _overlaySettings.WidthInMeters );
 

@@ -12,10 +12,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="virtual-reality.png" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Content Include="virtual-reality.ico" />
   </ItemGroup>
 
@@ -47,16 +43,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Properties\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\irsdkSharp\src\irsdkSharp.Serialization\irsdkSharp.Serialization.csproj" />
     <ProjectReference Include="..\irsdkSharp\src\irsdkSharp\irsdkSharp.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="virtual-reality.png" />
+    <Resource Include="green-light.png" />
+    <Resource Include="red-light.png" />
   </ItemGroup>
 
 </Project>

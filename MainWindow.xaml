@@ -5,54 +5,79 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:iRacingSTTVR"
         mc:Ignorable="d"
-        Title="iRacing-STT-VR 1.3" Width="800" Closed="Window_Closed" ResizeMode="CanMinimize" SizeToContent="Height" WindowStartupLocation="CenterScreen">
-    <StackPanel>
-        <TabControl x:Name="MainWindowTabControl">
-            <TabItem Header="Status">
-                <StackPanel Margin="5,0,5,0 ">
-                    <TextBox x:Name="StatusTextBox" TextWrapping="Wrap" IsReadOnly="True" Padding="3" Margin="0,5,0,5" ScrollViewer.VerticalScrollBarVisibility="Visible" Height="150"/>
-                </StackPanel>
-            </TabItem>
-            <TabItem Header="Cognitive Service API">
-                <StackPanel Margin="5,0,5,10">
-                    <Label Content="Cognitive Service Key"/>
-                    <TextBox x:Name="CognitiveServiceKeyTextBox" TextWrapping="NoWrap" Text="TextBox" Padding="3" TextChanged="CognitiveServiceKeyTextBox_TextChanged"/>
-                    <Label Content="Cognitive Service Location / Region"/>
-                    <TextBox x:Name="CognitiveServiceRegionTextBox" TextWrapping="NoWrap" Text="TextBox" Padding="3" TextChanged="CognitiveServiceRegionTextBox_TextChanged"/>
-                </StackPanel>
-            </TabItem>
-            <TabItem Header="Speech Service">
-                <StackPanel Margin="5,0,5,10">
-                    <Label Content="Log File Name"/>
-                    <TextBox x:Name="CognitiveServiceLogFileNameTextBox" TextWrapping="NoWrap" Text="TextBox" Padding="3" TextChanged="CognitiveServiceLogFileNameTextBox_TextChanged"/>
-                    <CheckBox x:Name="EnableProfanityFilterCheckBox" Content="Enable Profanity Filter" Margin="0,10,0,0" Click="EnableProfanityFilterCheckBox_Click"/>
-                </StackPanel>
-            </TabItem>
-            <TabItem Header="Graphics">
-                <StackPanel Margin="5,0,5,10">
-                    <Label Content="Background Texture File Name"/>
-                    <TextBox x:Name="BackgroundTextureFileNameTextBox" TextWrapping="NoWrap" Text="TextBox" Padding="3" TextChanged="BackgroundTextureFileNameTextBox_TextChanged"/>
-                    <Label Content="Font File Name"/>
-                    <TextBox x:Name="FontFileNameTextBox" TextWrapping="NoWrap" Text="TextBox" Padding="3" TextChanged="FontFileNameTextBox_TextChanged"/>
-                    <Label Content="Font Size" />
-                    <Slider x:Name="FontSizeSlider" Margin="0,0,0,0" Maximum="100" Minimum="10" SmallChange="1" LargeChange="5" ValueChanged="FontSizeSlider_ValueChanged" />
-                </StackPanel>
-            </TabItem>
-            <TabItem Header="Controllers">
-                <StackPanel Margin="5,0,5,10">
-                    <Label Content="Joystick Device Name"/>
-                    <ComboBox x:Name="JoystickDeviceNameComboBox" SelectionChanged="JoystickDeviceNameComboBox_SelectionChanged"/>
-                </StackPanel>
-            </TabItem>
-            <TabItem Header="Audio">
-                <StackPanel Margin="5,0,5,10">
-                    <Label Content="Audio Capture Device Name"/>
-                    <ComboBox x:Name="AudioCaptureDeviceNameComboBox" SelectionChanged="AudioCaptureDeviceNameComboBox_SelectionChanged"/>
-                    <Label Content="Audio Render Device Name"/>
-                    <ComboBox x:Name="AudioRenderDeviceNameComboBox" SelectionChanged="AudioRenderDeviceNameComboBox_SelectionChanged"/>
-                </StackPanel>
-            </TabItem>
-        </TabControl>
-        <Button x:Name="ApplySettingsButton" Content="Apply Settings" Margin="5,10,5,10" Click="ApplySettingsButton_Click"/>
-    </StackPanel>
+        Title="iRacing-STT-VR 1.4" Width="800" Closed="Window_Closed" ResizeMode="CanMinimize" SizeToContent="Height" WindowStartupLocation="CenterScreen">
+    <Grid>
+        <StackPanel>
+            <TabControl x:Name="MainWindowTabControl">
+                <TabItem Header="Status">
+                    <StackPanel Margin="5,0,5,0 ">
+                        <TextBox x:Name="StatusTextBox" TextWrapping="Wrap" IsReadOnly="True" Padding="3" Margin="0,5,0,5" ScrollViewer.VerticalScrollBarVisibility="Visible" Height="150"/>
+                    </StackPanel>
+                </TabItem>
+                <TabItem Header="Cognitive Service API">
+                    <StackPanel Margin="5,0,5,10">
+                        <Label Content="Cognitive Service Key"/>
+                        <TextBox x:Name="CognitiveServiceKeyTextBox" TextWrapping="NoWrap" Text="TextBox" Padding="3" TextChanged="CognitiveServiceKeyTextBox_TextChanged"/>
+                        <Label Content="Cognitive Service Location / Region"/>
+                        <TextBox x:Name="CognitiveServiceRegionTextBox" TextWrapping="NoWrap" Text="TextBox" Padding="3" TextChanged="CognitiveServiceRegionTextBox_TextChanged"/>
+                    </StackPanel>
+                </TabItem>
+                <TabItem Header="Speech Service">
+                    <StackPanel Margin="5,0,5,10">
+                        <Label Content="Log File Name"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="CognitiveServiceLogFileNameTextBox" TextWrapping="NoWrap" Text="TextBox" Padding="3" TextChanged="CognitiveServiceLogFileNameTextBox_TextChanged"/>
+                            <Button x:Name="LogFileNameButton" Content="..." Margin="5,0,0,0" Padding="5,0,5,0" Grid.Column="1" Click="LogFileNameButton_Click"/>
+                        </Grid>
+                        <CheckBox x:Name="EnableProfanityFilterCheckBox" Content="Enable Profanity Filter" Margin="0,10,0,0" Click="EnableProfanityFilterCheckBox_Click"/>
+                    </StackPanel>
+                </TabItem>
+                <TabItem Header="Graphics">
+                    <StackPanel Margin="5,0,5,10">
+                        <Label Content="Background Texture File Name"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="BackgroundTextureFileNameTextBox" TextWrapping="NoWrap" Text="TextBox" Padding="3" TextChanged="BackgroundTextureFileNameTextBox_TextChanged"/>
+                            <Button x:Name="BackgroundTextureFileNameButton" Content="..." Margin="5,0,0,0" Padding="5,0,5,0" Grid.Column="1" Click="BackgroundTextureFileNameButton_Click"/>
+                        </Grid>
+                        <Label Content="Font File Name"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="FontFileNameTextBox" TextWrapping="NoWrap" Text="TextBox" Padding="3" TextChanged="FontFileNameTextBox_TextChanged"/>
+                            <Button x:Name="FontFileNameButton" Content="..." Margin="5,0,0,0" Padding="5,0,5,0" Grid.Column="1" Click="FontFileNameButton_Click"/>
+                        </Grid>
+                        <Label Content="Font Size" />
+                        <Slider x:Name="FontSizeSlider" Margin="0,0,0,0" Maximum="100" Minimum="10" SmallChange="1" LargeChange="5" ValueChanged="FontSizeSlider_ValueChanged" />
+                    </StackPanel>
+                </TabItem>
+                <TabItem Header="Controllers">
+                    <StackPanel Margin="5,0,5,10">
+                        <Label Content="Joystick Device Name"/>
+                        <ComboBox x:Name="JoystickDeviceNameComboBox" SelectionChanged="JoystickDeviceNameComboBox_SelectionChanged"/>
+                    </StackPanel>
+                </TabItem>
+                <TabItem Header="Audio">
+                    <StackPanel Margin="5,0,5,10">
+                        <Label Content="Audio Capture Device Name"/>
+                        <ComboBox x:Name="AudioCaptureDeviceNameComboBox" SelectionChanged="AudioCaptureDeviceNameComboBox_SelectionChanged"/>
+                        <Label Content="Audio Render Device Name"/>
+                        <ComboBox x:Name="AudioRenderDeviceNameComboBox" SelectionChanged="AudioRenderDeviceNameComboBox_SelectionChanged"/>
+                    </StackPanel>
+                </TabItem>
+            </TabControl>
+            <Button x:Name="ApplySettingsButton" Content="Apply Settings" Margin="5,10,5,10" Click="ApplySettingsButton_Click"/>
+        </StackPanel>
+        <Image x:Name="StatusImageB" Source="/red-light.png" Width="16" Height="16" Margin="758,2,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Stretch="None"/>
+        <Image x:Name="StatusImageA" Source="/red-light.png" Width="16" Height="16" Margin="739,2,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Stretch="None"/>
+    </Grid>
 </Window>

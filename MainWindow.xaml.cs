@@ -1,6 +1,10 @@
 ﻿
+using System;
 using System.Collections.Generic;
 using System.Windows;
+using System.Windows.Media.Imaging;
+
+using Microsoft.Win32;
 
 namespace iRacingSTTVR
 {
@@ -9,6 +13,12 @@ namespace iRacingSTTVR
 	/// </summary>
 	public partial class MainWindow : Window
 	{
+		private const string RedLightImage = "/red-light.png";
+		private const string GreenLightImage = "/green-light.png";
+
+		private BitmapImage _greenLightImage;
+		private BitmapImage _redLightImage;
+
 		public bool _isClosed { get; set; } = false;
 		public bool _applySettings { get; set; } = false;
 
@@ -32,9 +42,15 @@ namespace iRacingSTTVR
 		public string _selectedAudioRenderDeviceName { get; set; } = string.Empty;
 		public List<string> _connectedAudioRenderDevices { get; set; } = new List<string>();
 
+		public bool _statusA = false;
+		public bool _statusB = false;
+
 		public MainWindow()
 		{
 			InitializeComponent();
+
+			_greenLightImage = new BitmapImage( new Uri( $"pack://application:,,,{GreenLightImage}" ) );
+			_redLightImage = new BitmapImage( new Uri( $"pack://application:,,,{RedLightImage}" ) );
 		}
 
 		public void PushValues()
@@ -59,6 +75,15 @@ namespace iRacingSTTVR
 				JoystickDeviceNameComboBox.SelectedItem = _selectedJoystickDeviceName;
 				AudioCaptureDeviceNameComboBox.SelectedItem = _selectedAudioCaptureDeviceName;
 				AudioRenderDeviceNameComboBox.SelectedItem = _selectedAudioRenderDeviceName;
+			} );
+		}
+
+		public void UpdateStatusLights()
+		{
+			Dispatcher.Invoke( () =>
+			{
+				StatusImageA.Source = _statusA ? _greenLightImage : _redLightImage;
+				StatusImageB.Source = _statusB ? _greenLightImage : _redLightImage;
 			} );
 		}
 
@@ -95,7 +120,7 @@ namespace iRacingSTTVR
 		private void CognitiveServiceKeyTextBox_TextChanged( object sender, System.Windows.Controls.TextChangedEventArgs e )
 		{
 			_cognitiveServicesKey = CognitiveServiceKeyTextBox.Text;
-        }
+		}
 
 		private void CognitiveServiceRegionTextBox_TextChanged( object sender, System.Windows.Controls.TextChangedEventArgs e )
 		{
@@ -140,6 +165,65 @@ namespace iRacingSTTVR
 		private void AudioRenderDeviceNameComboBox_SelectionChanged( object sender, System.Windows.Controls.SelectionChangedEventArgs e )
 		{
 			_selectedAudioRenderDeviceName = (string) AudioRenderDeviceNameComboBox.SelectedItem;
+		}
+
+		private void LogFileNameButton_Click( object sender, RoutedEventArgs e )
+		{
+			var saveFileDialog = new SaveFileDialog
+			{
+				Filter = "Log files (*.log, *.txt)|*.log;*.txt|All files (*.*)|*.*",
+				CheckFileExists = false,
+				CheckPathExists = true,
+				DefaultExt = "*.log",
+				AddExtension = true,
+				InitialDirectory = Program._appDataFolder,
+				Title = "Save Speech Service Log File As"
+			};
+
+			if ( saveFileDialog.ShowDialog() == true )
+			{
+				_cognitiveServiceLogFileName = saveFileDialog.FileName;
+
+				CognitiveServiceLogFileNameTextBox.Text = _cognitiveServiceLogFileName;
+			}
+		}
+
+		private void BackgroundTextureFileNameButton_Click( object sender, RoutedEventArgs e )
+		{
+			var openFileDialog = new OpenFileDialog
+			{
+				Filter = "PNG image files (*.png)|*.png|All files (*.*)|*.*",
+				CheckFileExists = true,
+				CheckPathExists = true,
+				InitialDirectory = Program._documentsFolder,
+				Title = "Choose the Background Texture File"
+			};
+
+			if ( openFileDialog.ShowDialog() == true )
+			{
+				_backgroundTextureFileName = openFileDialog.FileName;
+
+				BackgroundTextureFileNameTextBox.Text = _backgroundTextureFileName;
+			}
+		}
+
+		private void FontFileNameButton_Click( object sender, RoutedEventArgs e )
+		{
+			var openFileDialog = new OpenFileDialog
+			{
+				Filter = "Font files (*.ttf; *.otf)|*.ttf;*.otf|All files (*.*)|*.*",
+				CheckFileExists = true,
+				CheckPathExists = true,
+				InitialDirectory = Program._documentsFolder,
+				Title = "Choose the Font File"
+			};
+
+			if ( openFileDialog.ShowDialog() == true )
+			{
+				_fontFileName = openFileDialog.FileName;
+
+				FontFileNameTextBox.Text = _fontFileName;
+			}
 		}
 	}
 }
