@@ -28,6 +28,8 @@ namespace iRacingSTTVR
 
 		public bool _enableProfanityFilter { get; set; } = true;
 
+		public bool _useOpenVROverlay { get; set; } = false;
+
 		public string _backgroundTextureFileName { get; set; } = string.Empty;
 
 		public string _fontFileName { get; set; } = string.Empty;
@@ -62,6 +64,8 @@ namespace iRacingSTTVR
 				CognitiveServiceLogFileNameTextBox.Text = _cognitiveServiceLogFileName;
 
 				EnableProfanityFilterCheckBox.IsChecked = _enableProfanityFilter;
+
+				GraphicsModeComboBox.SelectedIndex = ( _useOpenVROverlay ? 1 : 0 );
 
 				BackgroundTextureFileNameTextBox.Text = _backgroundTextureFileName;
 
@@ -186,6 +190,11 @@ namespace iRacingSTTVR
 
 				CognitiveServiceLogFileNameTextBox.Text = _cognitiveServiceLogFileName;
 			}
+		}
+
+		private void GraphicsModeComboBox_SelectionChanged( object sender, System.Windows.Controls.SelectionChangedEventArgs e )
+		{
+			_useOpenVROverlay = ( GraphicsModeComboBox.SelectedIndex == 1 );
 		}
 
 		private void BackgroundTextureFileNameButton_Click( object sender, RoutedEventArgs e )

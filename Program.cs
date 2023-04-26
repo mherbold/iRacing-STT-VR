@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Xml.Serialization;
 using System.Numerics;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices;
 // using System.Net;
 // using System.Net.WebSockets;
 // using System.Text;
@@ -59,6 +60,9 @@ public class OverlaySettings
 	public float X { get; set; } = 0.0f;
 	public float Y { get; set; } = 0.0f;
 	public float Z { get; set; } = -0.5f;
+	public float X_2D { get; set; } = 0.0f;
+	public float Y_2D { get; set; } = 0.0f;
+	public float Scale_2D { get; set; } = 1.0f;
 }
 
 [Serializable]
@@ -69,6 +73,8 @@ public class Settings
 	public string CognitiveServiceLogFileName { get; set; } = iRacingSTTVR.Program.None;
 
 	public bool EnableProfanityFilter { get; set; } = true;
+
+	public bool UseOpenVROverlay { get; set; } = false;
 
 	public string BackgroundTextureFileName { get; set; } = "background.png";
 
@@ -93,6 +99,32 @@ namespace iRacingSTTVR
 {
 	internal class Program
 	{
+		#region DLL imports
+
+		[StructLayout( LayoutKind.Sequential )]
+		public struct MARGINS
+		{
+			public int Left;
+			public int Right;
+			public int Top;
+			public int Bottom;
+		}
+
+		[DllImport( "user32.dll", SetLastError = true )]
+		private static extern UInt32 GetWindowLong( IntPtr hWnd, int nIndex );
+		[DllImport( "user32.dll" )]
+		static extern int SetWindowLong( IntPtr hWnd, int nIndex, IntPtr dwNewLong );
+		[DllImport( "user32.dll" )]
+		static extern bool SetLayeredWindowAttributes( IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags );
+		[DllImport( "dwmapi.dll" )]
+		static extern int DwmExtendFrameIntoClientArea( IntPtr hwnd, ref MARGINS margins );
+
+		public const int GWL_EXSTYLE = -20;
+		public const int WS_EX_LAYERED = 0x80000;
+		public const int WS_EX_TRANSPARENT = 0x20;
+
+		#endregion
+
 		#region Consts
 
 		private const string GeneralLogFileName = "iRacing-STT-VR.log";
@@ -275,50 +307,36 @@ namespace iRacingSTTVR
 
 				#region The main loop
 
-				var stopwatch = Stopwatch.StartNew();
-
-				if ( _sdl2Window != null )
+				while ( !_mainWindow._isClosed && ( _sdl2Window != null ) && ( _sdl2Window.Exists ) )
 				{
-					while ( _sdl2Window.Exists && !_mainWindow._isClosed )
+					var inputSnapshot = _sdl2Window.PumpEvents();
+
+					if ( _mainWindow._applySettings )
 					{
-						#region Window event pump
+						_mainWindow._applySettings = false;
 
-						var inputSnapshot = _sdl2Window.PumpEvents();
+						CleanUpEverything();
 
-						if ( !_sdl2Window.Exists )
-						{
-							break;
-						}
+						UpdateSettings();
 
-						#endregion
+						_mainWindow.ClearStatusTextBox();
 
-						if ( _mainWindow._applySettings )
-						{
-							_mainWindow._applySettings = false;
+						await InitializeEverything();
 
-							CleanUpEverything();
-
-							UpdateSettings();
-
-							_mainWindow.ClearStatusTextBox();
-
-							await InitializeEverything();
-
-							SaveSettings();
-						}
-						else
-						{
-							UpdateTelemetry();
-
-							ProcessJoystick();
-
-							UpdateVeldrid( stopwatch, inputSnapshot );
-
-							UpdateOverlay();
-						}
-
-						Thread.Sleep( 50 );
+						SaveSettings();
 					}
+					else
+					{
+						UpdateTelemetry();
+
+						ProcessJoystick();
+
+						UpdateVeldrid( inputSnapshot );
+
+						UpdateOverlay();
+					}
+
+					Thread.Sleep( 50 );
 				}
 
 				// _keepRunning = false;
@@ -387,6 +405,8 @@ namespace iRacingSTTVR
 
 				_mainWindow._enableProfanityFilter = _settings.EnableProfanityFilter;
 
+				_mainWindow._useOpenVROverlay = _settings.UseOpenVROverlay;
+
 				_mainWindow._backgroundTextureFileName = ( _settings.BackgroundTextureFileName == None ) ? "" : _settings.BackgroundTextureFileName;
 
 				_mainWindow._fontFileName = ( _settings.FontFileName == None ) ? "" : _settings.FontFileName;
@@ -425,6 +445,8 @@ namespace iRacingSTTVR
 				_settings.CognitiveServiceLogFileName = ( _mainWindow._cognitiveServiceLogFileName == "" ) ? None : _mainWindow._cognitiveServiceLogFileName;
 
 				_settings.EnableProfanityFilter = _mainWindow._enableProfanityFilter;
+
+				_settings.UseOpenVROverlay = _mainWindow._useOpenVROverlay;
 
 				_settings.BackgroundTextureFileName = ( _mainWindow._backgroundTextureFileName == "" ) ? None : _mainWindow._backgroundTextureFileName;
 
@@ -502,11 +524,14 @@ namespace iRacingSTTVR
 				_overlayHandle = 0;
 			}
 
-			if ( _framebuffer != null )
+			if ( _settings != null )
 			{
-				_framebuffer.Dispose();
+				if ( _settings.UseOpenVROverlay && ( _framebuffer != null ) )
+				{
+					_framebuffer.Dispose();
 
-				_framebuffer = null;
+					_framebuffer = null;
+				}
 			}
 
 			if ( _renderTargetTexture != null )
@@ -544,12 +569,19 @@ namespace iRacingSTTVR
 				_graphicsDevice = null;
 			}
 
+			if ( _sdl2Window != null )
+			{
+				_sdl2Window.Close();
+
+				_sdl2Window = null;
+			}
+
 			Log( " DONE.\r\n" );
 		}
 
 		private static void ResetOverlay()
 		{
-			if ( _settings != null )
+			if ( _settings != null && _sdl2Window != null && _backgroundTexture != null )
 			{
 				_overlaySettings = null;
 
@@ -579,6 +611,14 @@ namespace iRacingSTTVR
 				_radioChatterB = new();
 
 				_trackPositionRelativeToLeadCar = 0.0f;
+
+				if ( !_settings.UseOpenVROverlay )
+				{
+					_sdl2Window.X = (int) Math.Round( _overlaySettings.X_2D );
+					_sdl2Window.Y = (int) Math.Round( _overlaySettings.Y_2D );
+					_sdl2Window.Width = (int) Math.Round( _backgroundTexture.Width * _overlaySettings.Scale_2D );
+					_sdl2Window.Height = (int) Math.Round( _backgroundTexture.Height * _overlaySettings.Scale_2D );
+				}
 			}
 		}
 
@@ -645,20 +685,38 @@ namespace iRacingSTTVR
 		{
 			if ( _settings != null )
 			{
-				if ( _sdl2Window == null )
-				{
-					Log( "Creating window..." );
+				Log( "Loading background texture..." );
 
-					var windowCreateInfo = new WindowCreateInfo( Sdl2Native.SDL_WINDOWPOS_CENTERED, Sdl2Native.SDL_WINDOWPOS_CENTERED, 320, 240, WindowState.Hidden, OverlayName );
+				var imageSharpTexture = new ImageSharpTexture( _settings.BackgroundTextureFileName );
 
-					_sdl2Window = VeldridStartup.CreateWindow( windowCreateInfo );
+				Log( " OK!\r\n" );
 
-					Log( " OK!\r\n" );
-				}
+				Log( "Creating window..." );
+
+				var flags = _settings.UseOpenVROverlay ? ( SDL_WindowFlags.OpenGL | SDL_WindowFlags.Hidden ) : ( SDL_WindowFlags.OpenGL | SDL_WindowFlags.Borderless | SDL_WindowFlags.AlwaysOnTop | SDL_WindowFlags.Shown );
+
+				_sdl2Window = new Sdl2Window( OverlayName, 0, 0, (int) imageSharpTexture.Width, (int) imageSharpTexture.Height, flags, false );
+
+				var windowHandle = _sdl2Window.Handle;
+
+				var windowLong = GetWindowLong( windowHandle, GWL_EXSTYLE );
+
+				SetWindowLong( windowHandle, GWL_EXSTYLE, (IntPtr) windowLong | WS_EX_LAYERED | WS_EX_TRANSPARENT );
+
+				MARGINS marg = new() { Left = -1, Right = -1, Top = -1, Bottom = -1 };
+
+				DwmExtendFrameIntoClientArea( windowHandle, ref marg );
+
+				Log( " OK!\r\n" );
 
 				Log( "Creating graphics device..." );
 
-				var graphicsDeviceOptions = new GraphicsDeviceOptions( true );
+				var graphicsDeviceOptions = new GraphicsDeviceOptions
+				{
+					Debug = false,
+					HasMainSwapchain = !_settings.UseOpenVROverlay,
+					SwapchainSrgbFormat = true
+				};
 
 				_graphicsDevice = VeldridStartup.CreateGraphicsDevice( _sdl2Window, graphicsDeviceOptions, GraphicsBackend.Direct3D11 );
 
@@ -668,27 +726,32 @@ namespace iRacingSTTVR
 
 				Log( " OK!\r\n" );
 
-				Log( "Loading background texture..." );
-
-				var imageSharpTexture = new ImageSharpTexture( _settings.BackgroundTextureFileName );
+				Log( "Creating device texture from background texture..." );
 
 				_backgroundTexture = imageSharpTexture.CreateDeviceTexture( _graphicsDevice, _graphicsDevice.ResourceFactory );
 
 				Log( " OK!\r\n" );
 
-				Log( "Creating render target texture and frame buffer..." );
+				if ( _settings.UseOpenVROverlay )
+				{
+					Log( "Creating render target texture and frame buffer..." );
 
-				var textureDescription = TextureDescription.Texture2D( _backgroundTexture.Width, _backgroundTexture.Height, 1, 1, PixelFormat.B8_G8_R8_A8_UNorm_SRgb, TextureUsage.Sampled | TextureUsage.RenderTarget );
+					var textureDescription = TextureDescription.Texture2D( _backgroundTexture.Width, _backgroundTexture.Height, 1, 1, PixelFormat.B8_G8_R8_A8_UNorm_SRgb, TextureUsage.Sampled | TextureUsage.RenderTarget );
 
-				_renderTargetTexture = _graphicsDevice.ResourceFactory.CreateTexture( textureDescription );
+					_renderTargetTexture = _graphicsDevice.ResourceFactory.CreateTexture( textureDescription );
 
-				var frameBufferAttachmentDescription = new FramebufferAttachmentDescription( _renderTargetTexture, 0, 0 );
+					var frameBufferAttachmentDescription = new FramebufferAttachmentDescription( _renderTargetTexture, 0, 0 );
 
-				var framebufferDescription = new FramebufferDescription( null, new FramebufferAttachmentDescription[] { frameBufferAttachmentDescription } );
+					var framebufferDescription = new FramebufferDescription( null, new FramebufferAttachmentDescription[] { frameBufferAttachmentDescription } );
 
-				_framebuffer = _graphicsDevice.ResourceFactory.CreateFramebuffer( framebufferDescription );
+					_framebuffer = _graphicsDevice.ResourceFactory.CreateFramebuffer( framebufferDescription );
 
-				Log( " OK!\r\n" );
+					Log( " OK!\r\n" );
+				}
+				else
+				{
+					_framebuffer = _graphicsDevice.MainSwapchain.Framebuffer;
+				}
 			}
 		}
 
@@ -724,61 +787,64 @@ namespace iRacingSTTVR
 
 		private static void InitializeOpenVR()
 		{
-			if ( _backendInfo != null )
+			if ( _settings != null && _backendInfo != null )
 			{
-				Log( "Initializing OpenVR..." );
-
-				EVRInitError evrInitError = EVRInitError.None;
-
-				OpenVR.Init( ref evrInitError, EVRApplicationType.VRApplication_Overlay );
-
-				if ( evrInitError != EVRInitError.None )
+				if ( _settings.UseOpenVROverlay )
 				{
-					Log( $"\r\n\r\nOpenVR.Init failed with error: {evrInitError}\r\n\r\n" );
+					Log( "Initializing OpenVR..." );
 
-					return;
-				}
+					EVRInitError evrInitError = EVRInitError.None;
 
-				var evrOverlayError = OpenVR.Overlay.FindOverlay( OverlayKey, ref _overlayHandle );
+					OpenVR.Init( ref evrInitError, EVRApplicationType.VRApplication_Overlay );
 
-				if ( evrOverlayError != EVROverlayError.None )
-				{
-					if ( evrOverlayError == EVROverlayError.UnknownOverlay )
+					if ( evrInitError != EVRInitError.None )
 					{
-						evrOverlayError = OpenVR.Overlay.CreateOverlay( OverlayKey, OverlayName, ref _overlayHandle );
+						Log( $"\r\n\r\nOpenVR.Init failed with error: {evrInitError}\r\n\r\n" );
 
-						if ( evrOverlayError != EVROverlayError.None )
+						return;
+					}
+
+					var evrOverlayError = OpenVR.Overlay.FindOverlay( OverlayKey, ref _overlayHandle );
+
+					if ( evrOverlayError != EVROverlayError.None )
+					{
+						if ( evrOverlayError == EVROverlayError.UnknownOverlay )
 						{
-							Log( $"\r\n\r\nOpenVR.Overlay.CreateOverlay failed with error: {evrOverlayError}\r\n\r\n" );
+							evrOverlayError = OpenVR.Overlay.CreateOverlay( OverlayKey, OverlayName, ref _overlayHandle );
+
+							if ( evrOverlayError != EVROverlayError.None )
+							{
+								Log( $"\r\n\r\nOpenVR.Overlay.CreateOverlay failed with error: {evrOverlayError}\r\n\r\n" );
+
+								return;
+							}
+						}
+						else
+						{
+							Log( $"\r\n\r\nOpenVR.Overlay.FindOverlay failed with error: {evrOverlayError}\r\n\r\n" );
 
 							return;
 						}
 					}
-					else
+
+					evrOverlayError = OpenVR.Overlay.ShowOverlay( _overlayHandle );
+
+					if ( evrOverlayError != EVROverlayError.None )
 					{
-						Log( $"\r\n\r\nOpenVR.Overlay.FindOverlay failed with error: {evrOverlayError}\r\n\r\n" );
+						Log( $"\r\n\r\nOpenVR.Overlay.ShowOverlay failed with error: {evrOverlayError}\r\n\r\n" );
 
 						return;
 					}
+
+					_openVrTexture = new Texture_t
+					{
+						handle = _backendInfo.GetTexturePointer( _renderTargetTexture ),
+						eType = ETextureType.DirectX,
+						eColorSpace = EColorSpace.Gamma
+					};
+
+					Log( " OK!\r\n" );
 				}
-
-				evrOverlayError = OpenVR.Overlay.ShowOverlay( _overlayHandle );
-
-				if ( evrOverlayError != EVROverlayError.None )
-				{
-					Log( $"\r\n\r\nOpenVR.Overlay.ShowOverlay failed with error: {evrOverlayError}\r\n\r\n" );
-
-					return;
-				}
-
-				_openVrTexture = new Texture_t
-				{
-					handle = _backendInfo.GetTexturePointer( _renderTargetTexture ),
-					eType = ETextureType.DirectX,
-					eColorSpace = EColorSpace.Gamma
-				};
-
-				Log( " OK!\r\n" );
 			}
 		}
 
@@ -1294,7 +1360,9 @@ namespace iRacingSTTVR
 								WidthInMeters = 1.0f,
 								X = 0.0f,
 								Y = 0.0f,
-								Z = -1.0f
+								Z = -1.0f,
+								X_2D = 0.0f,
+								Y_2D = 0.0f
 							};
 
 							_settings.OverlaySettingsList.Add( overlaySettings );
@@ -1532,24 +1600,24 @@ namespace iRacingSTTVR
 
 		private static void ProcessJoystick()
 		{
-			if ( _overlaySettings != null )
+			if ( _settings != null && _overlaySettings != null && _sdl2Window != null && _backgroundTexture != null && _directInputDevice != null )
 			{
-				if ( _directInputDevice != null )
+				var result = _directInputDevice.Poll();
+
+				if ( result.Failure )
 				{
-					var result = _directInputDevice.Poll();
+					result = _directInputDevice.Acquire();
+				}
 
-					if ( result.Failure )
+				if ( result.Success )
+				{
+					var joystickState = _directInputDevice.GetCurrentJoystickState();
+
+					var x = joystickState.X / 32768.0f - 1.0f;
+					var y = joystickState.Y / 32768.0f - 1.0f;
+
+					if ( _settings.UseOpenVROverlay )
 					{
-						result = _directInputDevice.Acquire();
-					}
-
-					if ( result.Success )
-					{
-						var joystickState = _directInputDevice.GetCurrentJoystickState();
-
-						var x = joystickState.X / 32768.0f - 1.0f;
-						var y = joystickState.Y / 32768.0f - 1.0f;
-
 						if ( joystickState.Buttons[ 0 ] )
 						{
 							_overlaySettings.X += x * 0.005f;
@@ -1570,19 +1638,35 @@ namespace iRacingSTTVR
 							SaveSettings();
 						}
 					}
+					else
+					{
+						if ( joystickState.Buttons[ 0 ] )
+						{
+							_overlaySettings.X_2D += x * 10.0f;
+							_overlaySettings.Y_2D += y * 10.0f;
+
+							_sdl2Window.X = (int) Math.Round( _overlaySettings.X_2D );
+							_sdl2Window.Y = (int) Math.Round( _overlaySettings.Y_2D );
+
+							SaveSettings();
+						}
+						else if ( joystickState.Buttons[ 2 ] )
+						{
+							_overlaySettings.Scale_2D += x * 0.01f;
+
+							_sdl2Window.Width = (int) Math.Round( _backgroundTexture.Width * _overlaySettings.Scale_2D );
+							_sdl2Window.Height = (int) Math.Round( _backgroundTexture.Height * _overlaySettings.Scale_2D );
+						}
+					}
 				}
 			}
 		}
 
-		private static void UpdateVeldrid( Stopwatch stopwatch, InputSnapshot inputSnapshot )
+		private static void UpdateVeldrid( InputSnapshot inputSnapshot )
 		{
 			if ( ( _settings != null ) && ( _commandList != null ) && ( _graphicsDevice != null ) && ( _renderer != null ) )
 			{
-				var deltaTime = stopwatch.ElapsedTicks / (float) Stopwatch.Frequency;
-
-				stopwatch.Restart();
-
-				_renderer.Update( deltaTime, inputSnapshot );
+				_renderer.Update( 0.1f, inputSnapshot );
 
 				UpdateImGui();
 

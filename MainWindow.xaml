@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:iRacingSTTVR"
         mc:Ignorable="d"
-        Title="iRacing-STT-VR 1.5" Width="800" Closed="Window_Closed" ResizeMode="CanMinimize" SizeToContent="Height" WindowStartupLocation="CenterScreen">
+        Title="iRacing-STT-VR 1.6" Width="800" Closed="Window_Closed" ResizeMode="CanMinimize" SizeToContent="Height" WindowStartupLocation="CenterScreen">
     <Grid>
         <StackPanel>
             <TabControl x:Name="MainWindowTabControl">
@@ -38,6 +38,11 @@
                 </TabItem>
                 <TabItem Header="Graphics">
                     <StackPanel Margin="5,0,5,10">
+                        <Label Content="Mode"/>
+                        <ComboBox x:Name="GraphicsModeComboBox" SelectionChanged="GraphicsModeComboBox_SelectionChanged">
+                            <ComboBoxItem Content="Desktop window overlay"/>
+                            <ComboBoxItem Content="OpenVR overlay"/>
+                        </ComboBox>
                         <Label Content="Background Texture File Name"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
