@@ -135,8 +135,15 @@ namespace iRacingSTTVR
 
 		public const string None = "None";
 
-		private static readonly Vector4 TelemetryNormalColor = new( 1.0f, 1.0f, 0.0f, 1.0f );
-		private static readonly Vector4 TelemetryDangerColor = new( 1.0f, 0.1f, 0.1f, 1.0f );
+		private static readonly Vector4 YellowColor = new( 1.0f, 1.0f, 0.1f, 1.0f );
+		private static readonly Vector4 GreenColor = new( 0.1f, 1.0f, 0.1f, 1.0f );
+		private static readonly Vector4 RedColor = new( 0.9f, 0.1f, 0.1f, 1.0f );
+		private static readonly Vector4 BlueColor = new( 0.2f, 0.6f, 1.0f, 1.0f );
+		private static readonly Vector4 WhiteColor = new( 1.0f, 1.0f, 1.0f, 1.0f );
+
+		private static readonly Vector4 TelemetryNormalColor = WhiteColor;
+		private static readonly Vector4 TelemetryDangerColor = RedColor;
+
 		private static readonly Vector4 RadioChatterDriverNameColor = new( 0.75f, 0.75f, 1.00f, 1.00f );
 
 		#endregion
@@ -197,6 +204,7 @@ namespace iRacingSTTVR
 		private static int _sessionNum = 0;
 		private static int _lastLap = 0;
 		private static float _lastLapFuelLevel = 0.0f;
+		private static int _lastSessionFlags = 0;
 
 		#endregion
 
@@ -293,15 +301,15 @@ namespace iRacingSTTVR
 
 				#endregion
 
-				#region Initialize everything
-
-				await InitializeEverything();
-
-				#endregion
-
 				#region Reset the overlay
 
 				ResetOverlay();
+
+				#endregion
+
+				#region Initialize everything
+
+				await InitializeEverything();
 
 				#endregion
 
@@ -573,6 +581,8 @@ namespace iRacingSTTVR
 			{
 				_sdl2Window.Close();
 
+				_sdl2Window.PumpEvents();
+
 				_sdl2Window = null;
 			}
 
@@ -581,7 +591,7 @@ namespace iRacingSTTVR
 
 		private static void ResetOverlay()
 		{
-			if ( _settings != null && _sdl2Window != null && _backgroundTexture != null )
+			if ( _settings != null )
 			{
 				_overlaySettings = null;
 
@@ -611,14 +621,6 @@ namespace iRacingSTTVR
 				_radioChatterB = new();
 
 				_trackPositionRelativeToLeadCar = 0.0f;
-
-				if ( !_settings.UseOpenVROverlay )
-				{
-					_sdl2Window.X = (int) Math.Round( _overlaySettings.X_2D );
-					_sdl2Window.Y = (int) Math.Round( _overlaySettings.Y_2D );
-					_sdl2Window.Width = (int) Math.Round( _backgroundTexture.Width * _overlaySettings.Scale_2D );
-					_sdl2Window.Height = (int) Math.Round( _backgroundTexture.Height * _overlaySettings.Scale_2D );
-				}
 			}
 		}
 
@@ -695,7 +697,7 @@ namespace iRacingSTTVR
 
 				var flags = _settings.UseOpenVROverlay ? ( SDL_WindowFlags.OpenGL | SDL_WindowFlags.Hidden ) : ( SDL_WindowFlags.OpenGL | SDL_WindowFlags.Borderless | SDL_WindowFlags.AlwaysOnTop | SDL_WindowFlags.Shown );
 
-				_sdl2Window = new Sdl2Window( OverlayName, 0, 0, (int) imageSharpTexture.Width, (int) imageSharpTexture.Height, flags, false );
+				_sdl2Window = new Sdl2Window( OverlayName, 0, 0, (int) imageSharpTexture.Width, (int) imageSharpTexture.Height, flags, true );
 
 				var windowHandle = _sdl2Window.Handle;
 
@@ -729,6 +731,14 @@ namespace iRacingSTTVR
 				Log( "Creating device texture from background texture..." );
 
 				_backgroundTexture = imageSharpTexture.CreateDeviceTexture( _graphicsDevice, _graphicsDevice.ResourceFactory );
+
+				if ( _overlaySettings != null )
+				{
+					_sdl2Window.X = (int) Math.Round( _overlaySettings.X_2D );
+					_sdl2Window.Y = (int) Math.Round( _overlaySettings.Y_2D );
+					_sdl2Window.Width = (int) Math.Round( _backgroundTexture.Width * _overlaySettings.Scale_2D );
+					_sdl2Window.Height = (int) Math.Round( _backgroundTexture.Height * _overlaySettings.Scale_2D );
+				}
 
 				Log( " OK!\r\n" );
 
@@ -1390,7 +1400,7 @@ namespace iRacingSTTVR
 
 					#endregion
 
-					#region Reset lap fuel level delta variables if the session was changed
+					#region Reset lap fuel level delta variables etc if the session was changed
 
 					if ( ( _data.Data.SessionNum != _sessionNum ) || sessionChanged )
 					{
@@ -1400,6 +1410,7 @@ namespace iRacingSTTVR
 						_lastLapFuelLevel = 0.0f;
 						_lapFuelLevelDelta = new float[] { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 						_highestLapFuelLevelDelta = 0.0f;
+						_lastSessionFlags = 0;
 					}
 
 					#endregion
@@ -1702,29 +1713,48 @@ namespace iRacingSTTVR
 					ImGui.SetWindowPos( new Vector2( 16.0f, 8.0f ) );
 					ImGui.SetWindowSize( new Vector2( _backgroundTexture.Width - 32.0f, _backgroundTexture.Height - 16.0f ) );
 
+					string message;
+
 					if ( !_isConnected )
 					{
-						ImGui.Text( "iRacing is not running." );
+						message = "iRacing is not running.";
 					}
 					else if ( _session == null )
 					{
-						ImGui.Text( "Waiting for session information..." );
+						message = "Waiting for session information...";
 					}
 					else
 					{
-						ImGui.Text( "Waiting for telemetry..." );
+						message = "Waiting for telemetry...";
 					}
 
+					var textSize = ImGui.CalcTextSize( message );
+
+					ImGui.SetCursorPosX( ( _backgroundTexture.Width - textSize.X ) * 0.5f );
+					ImGui.Text( message );
 					ImGui.End();
 				}
 				else
 				{
-					_blinkTick++;
+					#region Blinker
 
-					if ( _blinkTick == 10 )
+					if ( _data.Data.SessionFlags != _lastSessionFlags )
 					{
+						_lastSessionFlags = _data.Data.SessionFlags;
+
 						_blinkTick = 0;
 					}
+					else
+					{
+						_blinkTick++;
+
+						if ( _blinkTick >= 20 )
+						{
+							_blinkTick = 0;
+						}
+					}
+
+					#endregion
 
 					#region Drawing area calculations
 
@@ -1751,12 +1781,76 @@ namespace iRacingSTTVR
 					var telemetryWidth = textAreaWidth / telemetryCount;
 					var telemetryHeight = (float) _settings.FontSize;
 
+					float textX;
+					float textY;
+
+					Vector2 textSize;
+
+					ImDrawListPtr drawList;
+
 					#endregion
+
+					string? sessionFlagsText = null;
+					var sessionFlagsColor = Vector4.Zero;
+
+					if ( _blinkTick < 14 )
+					{
+						if ( ( _data.Data.SessionFlags & ( (uint) SessionFlags.Caution | (uint) SessionFlags.CautionWaving | (uint) SessionFlags.Yellow | (uint) SessionFlags.YellowWaving ) ) != 0 )
+						{
+							sessionFlagsText = "--- !!! CAUTION !!! ---";
+							sessionFlagsColor = YellowColor;
+						}
+						else if ( ( _data.Data.SessionFlags & ( (uint) SessionFlags.StartGo ) ) != 0 )
+						{
+							sessionFlagsText = "GO! GO! GO!";
+							sessionFlagsColor = GreenColor;
+						}
+						else if ( ( _data.Data.SessionFlags & ( (uint) SessionFlags.Blue ) ) != 0 )
+						{
+							sessionFlagsText = "Let the car pass.";
+							sessionFlagsColor = BlueColor;
+						}
+						else if ( ( _data.Data.SessionFlags & ( (uint) SessionFlags.Disqualify ) ) != 0 )
+						{
+							sessionFlagsText = "You have been disqualified!";
+							sessionFlagsColor = RedColor;
+						}
+						else if ( ( _data.Data.SessionFlags & ( (uint) SessionFlags.Repair ) ) != 0 )
+						{
+							sessionFlagsText = "You must come in for repairs!";
+							sessionFlagsColor = RedColor;
+						}
+						else if ( ( _data.Data.SessionFlags & ( (uint) SessionFlags.Black ) ) != 0 )
+						{
+							sessionFlagsText = "You have been black flagged!";
+							sessionFlagsColor = RedColor;
+						}
+						else if ( ( _data.Data.SessionFlags & ( (uint) SessionFlags.TenToGo ) ) != 0 )
+						{
+							sessionFlagsText = "Ten laps to go.";
+							sessionFlagsColor = GreenColor;
+						}
+						else if ( ( _data.Data.SessionFlags & ( (uint) SessionFlags.FiveToGo ) ) != 0 )
+						{
+							sessionFlagsText = "Five laps to go.";
+							sessionFlagsColor = GreenColor;
+						}
+						else if ( ( _data.Data.SessionFlags & ( (uint) SessionFlags.White ) ) != 0 )
+						{
+							sessionFlagsText = "One lap to go.";
+							sessionFlagsColor = GreenColor;
+						}
+						else if ( ( _data.Data.SessionFlags & ( (uint) SessionFlags.Checkered ) ) != 0 )
+						{
+							sessionFlagsText = "Checkered flag.";
+							sessionFlagsColor = WhiteColor;
+						}
+					}
 
 					#region Car number
 
-					var textX = drawMarginX + sideIndicatorToTextAreaOffset;
-					var textY = drawMarginY;
+					textX = drawMarginX + sideIndicatorToTextAreaOffset;
+					textY = drawMarginY;
 
 					ImGui.Begin( $"{OverlayName} - Car number", ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoBackground );
 					ImGui.SetWindowPos( new Vector2( textX, textY ) );
@@ -1764,7 +1858,7 @@ namespace iRacingSTTVR
 
 					var contentRegion = ImGui.GetContentRegionMax();
 					string telemetryString = $"#{_session.DriverInfo.Drivers[ _session.DriverInfo.DriverCarIdx ].CarNumber}";
-					var textSize = ImGui.CalcTextSize( telemetryString );
+					textSize = ImGui.CalcTextSize( telemetryString );
 
 					ImGui.SetCursorPosX( ( contentRegion.X - textSize.X ) * 0.5f );
 					ImGui.TextColored( TelemetryNormalColor, telemetryString );
@@ -1812,41 +1906,68 @@ namespace iRacingSTTVR
 
 					#endregion
 
-					#region Position
+					if ( sessionFlagsText != null )
+					{
+						#region Session flags
 
-					textX += telemetryWidth;
+						textX += telemetryWidth;
 
-					ImGui.Begin( $"{OverlayName} - Position", ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoBackground );
-					ImGui.SetWindowPos( new Vector2( textX, textY ) );
-					ImGui.SetWindowSize( new Vector2( telemetryWidth, telemetryHeight ) );
+						ImGui.Begin( $"{OverlayName} - Session flags", ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoBackground );
+						ImGui.SetWindowPos( new Vector2( textX, textY ) );
+						ImGui.SetWindowSize( new Vector2( telemetryWidth * 2.0f, telemetryHeight ) );
 
-					contentRegion = ImGui.GetContentRegionMax();
-					telemetryString = $"Pos {_data.Data.PlayerCarPosition} / {_session.DriverInfo.Drivers.Count - 1}";
-					textSize = ImGui.CalcTextSize( telemetryString );
+						textSize = ImGui.CalcTextSize( sessionFlagsText );
 
-					ImGui.SetCursorPosX( ( contentRegion.X - textSize.X ) * 0.5f );
-					ImGui.TextColored( TelemetryNormalColor, telemetryString );
-					ImGui.End();
+						drawList = ImGui.GetWindowDrawList();
 
-					#endregion
+						drawList.AddRectFilled( new Vector2( textX, textY), new Vector2( textX + telemetryWidth * 2.0f, textY + telemetryHeight), 0xEF000000, 5.0f );
 
-					#region Track position behind leader
+						ImGui.SetCursorPosX( ( telemetryWidth * 2.0f - textSize.X ) * 0.5f );
+						ImGui.TextColored( sessionFlagsColor, sessionFlagsText );
+						ImGui.End();
 
-					textX += telemetryWidth;
+						textX += telemetryWidth;
 
-					ImGui.Begin( $"{OverlayName} - Track position behind leader", ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoBackground );
-					ImGui.SetWindowPos( new Vector2( textX, textY ) );
-					ImGui.SetWindowSize( new Vector2( telemetryWidth, telemetryHeight ) );
+						#endregion
+					}
+					else
+					{
+						#region Position
 
-					contentRegion = ImGui.GetContentRegionMax();
-					telemetryString = $"{_trackPositionRelativeToLeadCar:0.000}";
-					textSize = ImGui.CalcTextSize( telemetryString );
+						textX += telemetryWidth;
 
-					ImGui.SetCursorPosX( ( contentRegion.X - textSize.X ) * 0.5f );
-					ImGui.TextColored( TelemetryNormalColor, telemetryString );
-					ImGui.End();
+						ImGui.Begin( $"{OverlayName} - Position", ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoBackground );
+						ImGui.SetWindowPos( new Vector2( textX, textY ) );
+						ImGui.SetWindowSize( new Vector2( telemetryWidth, telemetryHeight ) );
 
-					#endregion
+						contentRegion = ImGui.GetContentRegionMax();
+						telemetryString = $"Pos {_data.Data.PlayerCarPosition} / {_session.DriverInfo.Drivers.Count - 1}";
+						textSize = ImGui.CalcTextSize( telemetryString );
+
+						ImGui.SetCursorPosX( ( contentRegion.X - textSize.X ) * 0.5f );
+						ImGui.TextColored( TelemetryNormalColor, telemetryString );
+						ImGui.End();
+
+						#endregion
+
+						#region Track position behind leader
+
+						textX += telemetryWidth;
+
+						ImGui.Begin( $"{OverlayName} - Track position behind leader", ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoBackground );
+						ImGui.SetWindowPos( new Vector2( textX, textY ) );
+						ImGui.SetWindowSize( new Vector2( telemetryWidth, telemetryHeight ) );
+
+						contentRegion = ImGui.GetContentRegionMax();
+						telemetryString = $"{_trackPositionRelativeToLeadCar:0.000}";
+						textSize = ImGui.CalcTextSize( telemetryString );
+
+						ImGui.SetCursorPosX( ( contentRegion.X - textSize.X ) * 0.5f );
+						ImGui.TextColored( TelemetryNormalColor, telemetryString );
+						ImGui.End();
+
+						#endregion
+					}
 
 					#region Speed
 
@@ -1937,8 +2058,8 @@ namespace iRacingSTTVR
 							carsRight = 2;
 							break;
 						case CarLeftRight.LRCarLeftRight:
-							carsLeft = 1;
-							carsRight = 1;
+							carsLeft = 2;
+							carsRight = 2;
 							break;
 					}
 
@@ -1946,7 +2067,7 @@ namespace iRacingSTTVR
 					ImGui.SetWindowPos( Vector2.Zero );
 					ImGui.SetWindowSize( new Vector2( fullWidth, fullHeight ) );
 
-					var drawList = ImGui.GetWindowDrawList();
+					drawList = ImGui.GetWindowDrawList();
 
 					var indicatorX1 = drawMarginX;
 					var indicatorY1 = drawMarginY;
@@ -1954,7 +2075,7 @@ namespace iRacingSTTVR
 					var indicatorX2 = indicatorX1 + sideIndicatorWidth;
 					var indicatorY2 = indicatorY1 + drawHeight;
 
-					var indicatorColor = ( carsLeft == 0 ) ? 0xFF000F00 : 0xFF1F1FFF;
+					var indicatorColor = ( carsLeft == 0 ) ? 0xBF000F00 : 0xEF1F1FFF;
 
 					carsLeft = Math.Max( 1, carsLeft );
 
@@ -1965,7 +2086,7 @@ namespace iRacingSTTVR
 						indicatorX1 += sideIndicatorWidth + sideIndicatorSpacing;
 						indicatorX2 += sideIndicatorWidth + sideIndicatorSpacing;
 
-						if ( _blinkTick < 3 )
+						if ( ( _blinkTick % 10 ) < 3 )
 						{
 							indicatorColor = 0;
 						}
@@ -1977,7 +2098,7 @@ namespace iRacingSTTVR
 					indicatorX2 = indicatorX1 + sideIndicatorWidth;
 					indicatorY2 = indicatorY1 + drawHeight;
 
-					indicatorColor = ( carsRight == 0 ) ? 0xFF000F00 : 0xFF1F1FFF;
+					indicatorColor = ( carsRight == 0 ) ? 0xBF000F00 : 0xEF1F1FFF;
 
 					carsRight = Math.Max( 1, carsRight );
 
@@ -1988,7 +2109,7 @@ namespace iRacingSTTVR
 						indicatorX1 -= sideIndicatorWidth + sideIndicatorSpacing;
 						indicatorX2 -= sideIndicatorWidth + sideIndicatorSpacing;
 
-						if ( _blinkTick < 3 )
+						if ( ( _blinkTick % 10 ) < 3 )
 						{
 							indicatorColor = 0;
 						}
@@ -2012,7 +2133,7 @@ namespace iRacingSTTVR
 
 				if ( showBlinker && ( _data != null ) && ( _data.Data.RadioTransmitCarIdx != -1 ) )
 				{
-					if ( _blinkTick < 5 )
+					if ( ( _blinkTick % 5 ) < 3 )
 					{
 						text += " *";
 					}

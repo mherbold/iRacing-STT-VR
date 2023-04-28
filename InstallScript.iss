@@ -5,7 +5,7 @@
 
 [Setup]
 AppName=iRacing-STT-VR
-AppVersion=1.6
+AppVersion=1.7
 AppCopyright=Created by Marvin Herbold
 AppPublisher=Marvin Herbold
 AppPublisherURL=http://herboldracing.com/blog/iracing/iracing-stt-vr/
