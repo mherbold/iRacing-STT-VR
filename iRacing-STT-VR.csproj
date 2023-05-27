@@ -9,6 +9,7 @@
     <StartupObject>iRacingSTTVR.Program</StartupObject>
     <ApplicationIcon>virtual-reality.ico</ApplicationIcon>
     <UseWindowsForms>False</UseWindowsForms>
+    <VersionPrefix>1.9</VersionPrefix>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,18 +17,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="ImGui.NET" Version="1.89.4" />
-    <PackageReference Include="Microsoft.CognitiveServices.Speech" Version="1.26.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="7.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="7.0.0" />
+    <PackageReference Include="ImGui.NET" Version="1.89.5" />
+    <PackageReference Include="Microsoft.CognitiveServices.Speech" Version="1.28.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0-preview.4.23259.5" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0-preview.4.23259.5" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0-preview.4.23259.5" />
     <PackageReference Include="NAudio" Version="2.1.0" />
-    <PackageReference Include="Serilog.Extensions.Logging" Version="3.1.0" />
-    <PackageReference Include="Veldrid" Version="4.9.0" />
-    <PackageReference Include="Veldrid.ImageSharp" Version="4.9.0" />
-    <PackageReference Include="Veldrid.ImGui" Version="5.72.0" />
-    <PackageReference Include="Veldrid.StartupUtilities" Version="4.9.0" />
-    <PackageReference Include="Vortice.DirectInput" Version="2.4.2" />
+    <PackageReference Include="Serilog.Extensions.Logging" Version="7.0.0" />
+    <PackageReference Include="Vortice.DirectInput" Version="3.2.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -45,6 +42,10 @@
   <ItemGroup>
     <ProjectReference Include="..\irsdkSharp\src\irsdkSharp.Serialization\irsdkSharp.Serialization.csproj" />
     <ProjectReference Include="..\irsdkSharp\src\irsdkSharp\irsdkSharp.csproj" />
+    <ProjectReference Include="..\veldrid\src\Veldrid.ImageSharp\Veldrid.ImageSharp.csproj" />
+    <ProjectReference Include="..\veldrid\src\Veldrid.ImGui\Veldrid.ImGui.csproj" />
+    <ProjectReference Include="..\veldrid\src\Veldrid.StartupUtilities\Veldrid.StartupUtilities.csproj" />
+    <ProjectReference Include="..\veldrid\src\Veldrid\Veldrid.csproj" />
   </ItemGroup>
 
   <ItemGroup>

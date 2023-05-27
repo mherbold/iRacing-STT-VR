@@ -5,6 +5,7 @@ VisualStudioVersion = 17.5.33516.290
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "iRacing-STT-VR", "iRacing-STT-VR.csproj", "{38085FD2-730B-48BD-9423-93F0764C2646}"
 	ProjectSection(ProjectDependencies) = postProject
+		{5707A8AE-E302-4C54-BDC6-4E821907B8AB} = {5707A8AE-E302-4C54-BDC6-4E821907B8AB}
 		{B7B2ED60-E03F-4903-8611-D5BB06EA71D6} = {B7B2ED60-E03F-4903-8611-D5BB06EA71D6}
 		{C43F3E07-A710-43C7-BE24-2CF616803E19} = {C43F3E07-A710-43C7-BE24-2CF616803E19}
 	EndProjectSection
@@ -12,6 +13,14 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "irsdkSharp", "..\irsdkSharp\src\irsdkSharp\irsdkSharp.csproj", "{B7B2ED60-E03F-4903-8611-D5BB06EA71D6}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "irsdkSharp.Serialization", "..\irsdkSharp\src\irsdkSharp.Serialization\irsdkSharp.Serialization.csproj", "{C43F3E07-A710-43C7-BE24-2CF616803E19}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Veldrid", "..\veldrid\src\Veldrid\Veldrid.csproj", "{5707A8AE-E302-4C54-BDC6-4E821907B8AB}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Veldrid.StartupUtilities", "..\veldrid\src\Veldrid.StartupUtilities\Veldrid.StartupUtilities.csproj", "{33C1F7F6-B3DD-4E16-9619-72DC2FFAEE27}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Veldrid.ImageSharp", "..\veldrid\src\Veldrid.ImageSharp\Veldrid.ImageSharp.csproj", "{84BAE729-71FF-48E7-87A1-8C08F0B8B55F}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Veldrid.ImGui", "..\veldrid\src\Veldrid.ImGui\Veldrid.ImGui.csproj", "{628B338F-0881-42F6-A260-FC14E170C2EA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -31,6 +40,22 @@ Global
 		{C43F3E07-A710-43C7-BE24-2CF616803E19}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C43F3E07-A710-43C7-BE24-2CF616803E19}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C43F3E07-A710-43C7-BE24-2CF616803E19}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5707A8AE-E302-4C54-BDC6-4E821907B8AB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5707A8AE-E302-4C54-BDC6-4E821907B8AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5707A8AE-E302-4C54-BDC6-4E821907B8AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5707A8AE-E302-4C54-BDC6-4E821907B8AB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{33C1F7F6-B3DD-4E16-9619-72DC2FFAEE27}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{33C1F7F6-B3DD-4E16-9619-72DC2FFAEE27}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{33C1F7F6-B3DD-4E16-9619-72DC2FFAEE27}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{33C1F7F6-B3DD-4E16-9619-72DC2FFAEE27}.Release|Any CPU.Build.0 = Release|Any CPU
+		{84BAE729-71FF-48E7-87A1-8C08F0B8B55F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{84BAE729-71FF-48E7-87A1-8C08F0B8B55F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{84BAE729-71FF-48E7-87A1-8C08F0B8B55F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{84BAE729-71FF-48E7-87A1-8C08F0B8B55F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{628B338F-0881-42F6-A260-FC14E170C2EA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{628B338F-0881-42F6-A260-FC14E170C2EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{628B338F-0881-42F6-A260-FC14E170C2EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{628B338F-0881-42F6-A260-FC14E170C2EA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

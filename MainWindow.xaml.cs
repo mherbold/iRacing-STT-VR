@@ -31,6 +31,7 @@ namespace iRacingSTTVR
 		public bool _useOpenVROverlay { get; set; } = false;
 
 		public string _backgroundTextureFileName { get; set; } = string.Empty;
+		public uint _backgroundOpacity { get; set; } = 80;
 
 		public string _fontFileName { get; set; } = string.Empty;
 		public uint _fontSize { get; set; } = 40;
@@ -68,6 +69,7 @@ namespace iRacingSTTVR
 				GraphicsModeComboBox.SelectedIndex = ( _useOpenVROverlay ? 1 : 0 );
 
 				BackgroundTextureFileNameTextBox.Text = _backgroundTextureFileName;
+				BackgroundOpacitySlider.Value = _backgroundOpacity;
 
 				FontFileNameTextBox.Text = _fontFileName;
 				FontSizeSlider.Value = _fontSize;
@@ -144,6 +146,11 @@ namespace iRacingSTTVR
 		private void BackgroundTextureFileNameTextBox_TextChanged( object sender, System.Windows.Controls.TextChangedEventArgs e )
 		{
 			_backgroundTextureFileName = BackgroundTextureFileNameTextBox.Text;
+		}
+
+		private void BackgroundOpacitySlider_ValueChanged( object sender, RoutedPropertyChangedEventArgs<double> e )
+		{
+			_backgroundOpacity = (uint) BackgroundOpacitySlider.Value;
 		}
 
 		private void FontFileNameTextBox_TextChanged( object sender, System.Windows.Controls.TextChangedEventArgs e )

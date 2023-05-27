@@ -77,6 +77,7 @@ public class Settings
 	public bool UseOpenVROverlay { get; set; } = false;
 
 	public string BackgroundTextureFileName { get; set; } = "background.png";
+	public uint BackgroundOpacity { get; set; } = 80;
 
 	public string FontFileName { get; set; } = "RevolutionGothic_ExtraBold.otf";
 	public uint FontSize { get; set; } = 40;
@@ -140,6 +141,7 @@ namespace iRacingSTTVR
 		private static readonly Vector4 RedColor = new( 0.9f, 0.1f, 0.1f, 1.0f );
 		private static readonly Vector4 BlueColor = new( 0.2f, 0.6f, 1.0f, 1.0f );
 		private static readonly Vector4 WhiteColor = new( 1.0f, 1.0f, 1.0f, 1.0f );
+		private static readonly Vector4 BlackColor = new( 0.0f, 0.0f, 0.0f, 1.0f );
 
 		private static readonly Vector4 TelemetryNormalColor = WhiteColor;
 		private static readonly Vector4 TelemetryDangerColor = RedColor;
@@ -251,6 +253,9 @@ namespace iRacingSTTVR
 		private static RadioChatter _radioChatterA = new();
 		private static RadioChatter _radioChatterB = new();
 		private static int _radioTick = 0;
+		private static int _radioHideTick = 0;
+
+		private static StreamWriter? _chatLogStreamWriter = null;
 
 		#endregion
 
@@ -416,6 +421,7 @@ namespace iRacingSTTVR
 				_mainWindow._useOpenVROverlay = _settings.UseOpenVROverlay;
 
 				_mainWindow._backgroundTextureFileName = ( _settings.BackgroundTextureFileName == None ) ? "" : _settings.BackgroundTextureFileName;
+				_mainWindow._backgroundOpacity = _settings.BackgroundOpacity;
 
 				_mainWindow._fontFileName = ( _settings.FontFileName == None ) ? "" : _settings.FontFileName;
 				_mainWindow._fontSize = _settings.FontSize;
@@ -457,6 +463,7 @@ namespace iRacingSTTVR
 				_settings.UseOpenVROverlay = _mainWindow._useOpenVROverlay;
 
 				_settings.BackgroundTextureFileName = ( _mainWindow._backgroundTextureFileName == "" ) ? None : _mainWindow._backgroundTextureFileName;
+				_settings.BackgroundOpacity = _mainWindow._backgroundOpacity;
 
 				_settings.FontFileName = ( _mainWindow._fontFileName == "" ) ? None : _mainWindow._fontFileName;
 				_settings.FontSize = _mainWindow._fontSize;
@@ -619,6 +626,9 @@ namespace iRacingSTTVR
 
 				_radioChatterA = new();
 				_radioChatterB = new();
+
+				_recoginizingString = string.Empty;
+				_recognizedString = string.Empty;
 
 				_trackPositionRelativeToLeadCar = 0.0f;
 			}
@@ -1112,6 +1122,12 @@ namespace iRacingSTTVR
 								{
 									// Debug.WriteLine( "_speechRecognizer.SessionStarted" );
 
+									if ( ( _chatLogStreamWriter != null ) && ( _data != null ) )
+									{
+										_chatLogStreamWriter.WriteLine( $"{_data.Data.SessionNum},{_data.Data.SessionTime:0.000},1,SessionStarted" );
+										_chatLogStreamWriter.Flush();
+									}
+
 									_mainWindow._statusB = true;
 
 									_mainWindow.UpdateStatusLights();
@@ -1120,6 +1136,12 @@ namespace iRacingSTTVR
 								_speechRecognizer.SessionStopped += ( s, e ) =>
 								{
 									// Debug.WriteLine( "_speechRecognizer.SessionStopped" );
+
+									if ( ( _chatLogStreamWriter != null ) && ( _data != null ) )
+									{
+										_chatLogStreamWriter.WriteLine( $"{_data.Data.SessionNum},{_data.Data.SessionTime:0.000},2,SessionStopped" );
+										_chatLogStreamWriter.Flush();
+									}
 
 									_mainWindow._statusB = false;
 
@@ -1143,18 +1165,39 @@ namespace iRacingSTTVR
 								_speechRecognizer.SpeechStartDetected += ( s, e ) =>
 								{
 									// Debug.WriteLine( "_speechRecognizer.SpeechStartDetected" );
+
+									if ( ( _chatLogStreamWriter != null ) && ( _data != null ) )
+									{
+										_chatLogStreamWriter.WriteLine( $"{_data.Data.SessionNum},{_data.Data.SessionTime:0.000},3,SpeechStartDetected" );
+										_chatLogStreamWriter.Flush();
+									}
 								};
 
 								_speechRecognizer.SpeechEndDetected += ( s, e ) =>
 								{
 									// Debug.WriteLine( "_speechRecognizer.SpeechEndDetected" );
+
+									if ( ( _chatLogStreamWriter != null ) && ( _data != null ) )
+									{
+										_chatLogStreamWriter.WriteLine( $"{_data.Data.SessionNum},{_data.Data.SessionTime:0.000},4,SpeechEndDetected" );
+										_chatLogStreamWriter.Flush();
+									}
 								};
 
 								_speechRecognizer.Recognizing += ( s, e ) =>
 								{
 									// Debug.WriteLine( $"_speechRecognizer.Recognizing, e.Result.Text = {e.Result.Text}" );
 
+									if ( ( _chatLogStreamWriter != null ) && ( _data != null ) )
+									{
+										var resultText = e.Result.Text.Replace( "\"", "'" );
+
+										_chatLogStreamWriter.WriteLine( $"{_data.Data.SessionNum},{_data.Data.SessionTime:0.000},5,Recognizing,{e.Result.Reason},\"{resultText}\"" );
+										_chatLogStreamWriter.Flush();
+									}
+
 									_speechTick = 0;
+									_radioHideTick = 0;
 
 									_recoginizingString = e.Result.Text;
 
@@ -1189,7 +1232,16 @@ namespace iRacingSTTVR
 								{
 									// Debug.WriteLine( $"_speechRecognizer.Recognized, e.Result.Reason = {e.Result.Reason}, e.Result.Text = {e.Result.Text}" );
 
+									if ( ( _chatLogStreamWriter != null ) && ( _data != null ) )
+									{
+										var resultText = e.Result.Text.Replace( "\"", "'" );
+
+										_chatLogStreamWriter.WriteLine( $"{_data.Data.SessionNum},{_data.Data.SessionTime:0.000},6,Recognized,{e.Result.Reason},\"{resultText}\"" );
+										_chatLogStreamWriter.Flush();
+									}
+
 									_speechTick = 0;
+									_radioHideTick = 0;
 
 									if ( e.Result.Reason == ResultReason.RecognizedSpeech )
 									{
@@ -1231,6 +1283,12 @@ namespace iRacingSTTVR
 								_speechRecognizer.Canceled += ( s, e ) =>
 								{
 									Debug.WriteLine( $"_speechRecognizer.Canceled, reason = {e.Reason}, errorCode = {e.ErrorCode}, errorDetails = {e.ErrorDetails}" );
+
+									if ( ( _chatLogStreamWriter != null ) && ( _data != null ) )
+									{
+										_chatLogStreamWriter.WriteLine( $"{_data.Data.SessionNum},{_data.Data.SessionTime:0.000},7,Canceled" );
+										_chatLogStreamWriter.Flush();
+									}
 								};
 
 								Log( " OK!\r\n" );
@@ -1350,15 +1408,20 @@ namespace iRacingSTTVR
 
 						_overlaySettings = null;
 
-						var carScreenName = _session.DriverInfo.Drivers[ _session.DriverInfo.DriverCarIdx ].CarScreenName;
+						var carScreenName = "Spectator";
 
-						foreach ( var overlaySettings in _settings.OverlaySettingsList )
+						if ( ( _session.DriverInfo.DriverCarIdx >= 0 ) && ( _session.DriverInfo.DriverCarIdx <= _session.DriverInfo.Drivers.Count ) )
 						{
-							if ( overlaySettings.CarScreenName == carScreenName )
-							{
-								_overlaySettings = overlaySettings;
+							carScreenName = _session.DriverInfo.Drivers[ _session.DriverInfo.DriverCarIdx ].CarScreenName;
 
-								break;
+							foreach ( var overlaySettings in _settings.OverlaySettingsList )
+							{
+								if ( overlaySettings.CarScreenName == carScreenName )
+								{
+									_overlaySettings = overlaySettings;
+
+									break;
+								}
 							}
 						}
 
@@ -1387,8 +1450,22 @@ namespace iRacingSTTVR
 							_sessionId = _session.WeekendInfo.SessionID;
 							_subSessionId = _session.WeekendInfo.SubSessionID;
 
-							_radioChatterA = new();
-							_radioChatterB = new();
+							var chatLogFileName = $"{_documentsFolder}\\iRacing-STT-VR\\ChatLogs\\{_sessionId}-{_subSessionId}.csv";
+
+							if ( _chatLogStreamWriter != null )
+							{
+								_chatLogStreamWriter.Close();
+
+								_chatLogStreamWriter = null;
+							}
+
+							Log( "Opening chat log file..." );
+
+							Directory.CreateDirectory( $"{_documentsFolder}\\iRacing-STT-VR\\ChatLogs" );
+
+							_chatLogStreamWriter = File.AppendText( chatLogFileName );
+
+							Log( $" OK!\r\n" );
 						}
 					}
 
@@ -1411,6 +1488,12 @@ namespace iRacingSTTVR
 						_lapFuelLevelDelta = new float[] { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 						_highestLapFuelLevelDelta = 0.0f;
 						_lastSessionFlags = 0;
+
+						_radioChatterA = new();
+						_radioChatterB = new();
+
+						_recoginizingString = string.Empty;
+						_recognizedString = string.Empty;
 					}
 
 					#endregion
@@ -1696,6 +1779,11 @@ namespace iRacingSTTVR
 
 		private static void UpdateImGui()
 		{
+			if ( _isConnected && ( _session != null ) && ( _session.WeekendInfo.SimMode != "replay" ) && ( _data != null ) && !_data.Data.IsOnTrack )
+			{
+				return;
+			}
+
 			if ( ( _settings != null ) && ( _backgroundTexture != null ) )
 			{
 				ImGui.PushFont( _font );
@@ -1704,7 +1792,7 @@ namespace iRacingSTTVR
 				ImGui.Begin( $"{OverlayName} - Background", ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoBackground );
 				ImGui.SetWindowPos( Vector2.Zero );
 				ImGui.SetWindowSize( new Vector2( _backgroundTexture.Width, _backgroundTexture.Height ) );
-				ImGui.Image( _backgroundTextureId, new Vector2( _backgroundTexture.Width, _backgroundTexture.Height ) );
+				ImGui.Image( _backgroundTextureId, new Vector2( _backgroundTexture.Width, _backgroundTexture.Height ), Vector2.Zero, Vector2.One, new Vector4( 1, 1, 1, _settings.BackgroundOpacity / 100.0f ) );
 				ImGui.End();
 
 				if ( !_isConnected || ( _session == null ) || ( _data == null ) )
@@ -1857,7 +1945,17 @@ namespace iRacingSTTVR
 					ImGui.SetWindowSize( new Vector2( telemetryWidth * 0.5f, telemetryHeight ) );
 
 					var contentRegion = ImGui.GetContentRegionMax();
-					string telemetryString = $"#{_session.DriverInfo.Drivers[ _session.DriverInfo.DriverCarIdx ].CarNumber}";
+					string telemetryString;
+
+					if ( ( _session.DriverInfo.DriverCarIdx >= 0 ) && ( _session.DriverInfo.DriverCarIdx <= _session.DriverInfo.Drivers.Count ) )
+					{
+						telemetryString = $"#{_session.DriverInfo.Drivers[ _session.DriverInfo.DriverCarIdx ].CarNumber}";
+					}
+					else
+					{
+						telemetryString = "SPEC";
+					}
+
 					textSize = ImGui.CalcTextSize( telemetryString );
 
 					ImGui.SetCursorPosX( ( contentRegion.X - textSize.X ) * 0.5f );
@@ -1906,7 +2004,53 @@ namespace iRacingSTTVR
 
 					#endregion
 
-					if ( sessionFlagsText != null )
+					uint? shiftLightColor = null;
+
+					if ( _data.Data.Gear < _session.DriverInfo.DriverCarGearNumForward )
+					{
+						if ( _data.Data.RPM >= _session.DriverInfo.DriverCarRedLine )
+						{
+							shiftLightColor = 0xEF2020FF;
+						}
+						else if ( _data.Data.RPM >= _session.DriverInfo.DriverCarSLBlinkRPM )
+						{
+							shiftLightColor = 0xEF20FFFF;
+						}
+						else if ( _data.Data.RPM >= _session.DriverInfo.DriverCarSLShiftRPM )
+						{
+							shiftLightColor = 0xEF20FF20;
+						}
+					}
+
+					if ( shiftLightColor != null )
+					{
+						#region Shift light
+
+						textX += telemetryWidth;
+
+						var steppedRPM = (int) Math.Floor( _data.Data.RPM / 100 ) * 100;
+
+						telemetryString = steppedRPM.ToString();
+
+						ImGui.Begin( $"{OverlayName} - Shift light", ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoBackground );
+						ImGui.SetWindowPos( new Vector2( textX, textY ) );
+						ImGui.SetWindowSize( new Vector2( telemetryWidth * 2.0f, telemetryHeight ) );
+
+						textSize = ImGui.CalcTextSize( telemetryString );
+
+						drawList = ImGui.GetWindowDrawList();
+
+						drawList.AddRectFilled( new Vector2( textX, textY ), new Vector2( textX + telemetryWidth * 2.0f, textY + telemetryHeight ), shiftLightColor ?? 0xFFFFFFFF, 5.0f );
+
+						ImGui.SetCursorPosX( ( telemetryWidth * 2.0f - textSize.X ) * 0.5f );
+						ImGui.TextColored( BlackColor, telemetryString );
+						ImGui.End();
+
+						textX += telemetryWidth;
+
+						#endregion
+					}
+					else if ( sessionFlagsText != null )
 					{
 						#region Session flags
 
@@ -1920,7 +2064,7 @@ namespace iRacingSTTVR
 
 						drawList = ImGui.GetWindowDrawList();
 
-						drawList.AddRectFilled( new Vector2( textX, textY), new Vector2( textX + telemetryWidth * 2.0f, textY + telemetryHeight), 0xEF000000, 5.0f );
+						drawList.AddRectFilled( new Vector2( textX, textY ), new Vector2( textX + telemetryWidth * 2.0f, textY + telemetryHeight ), 0xEF000000, 5.0f );
 
 						ImGui.SetCursorPosX( ( telemetryWidth * 2.0f - textSize.X ) * 0.5f );
 						ImGui.TextColored( sessionFlagsColor, sessionFlagsText );
@@ -2020,21 +2164,26 @@ namespace iRacingSTTVR
 
 					#region Radio 
 
-					textX = drawMarginX + sideIndicatorToTextAreaOffset;
-					textY = drawMarginY + _settings.FontSize;
+					_radioHideTick++;
 
-					var chatBoxWidth = textAreaWidth;
-					var chatBoxHeight = textAreaHeight - _settings.FontSize;
+					if ( _radioHideTick < 200 )
+					{
+						textX = drawMarginX + sideIndicatorToTextAreaOffset;
+						textY = drawMarginY + _settings.FontSize;
 
-					ImGui.Begin( $"{OverlayName} - Radio", ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoBackground );
-					ImGui.SetWindowPos( new Vector2( textX, textY ) );
-					ImGui.SetWindowSize( new Vector2( chatBoxWidth, chatBoxHeight ) );
+						var chatBoxWidth = textAreaWidth;
+						var chatBoxHeight = textAreaHeight - _settings.FontSize;
 
-					DrawRadioChatter( ref _radioChatterA, false );
-					DrawRadioChatter( ref _radioChatterB, true );
+						ImGui.Begin( $"{OverlayName} - Radio", ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoBackground );
+						ImGui.SetWindowPos( new Vector2( textX, textY ) );
+						ImGui.SetWindowSize( new Vector2( chatBoxWidth, chatBoxHeight ) );
 
-					ImGui.SetScrollHereY( 1.0f );
-					ImGui.End();
+						DrawRadioChatter( ref _radioChatterA, false );
+						DrawRadioChatter( ref _radioChatterB, true );
+
+						ImGui.SetScrollHereY( 1.0f );
+						ImGui.End();
+					}
 
 					#endregion
 

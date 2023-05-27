@@ -5,9 +5,14 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:iRacingSTTVR"
         mc:Ignorable="d"
-        Title="iRacing-STT-VR 1.7" Width="800" Closed="Window_Closed" ResizeMode="CanMinimize" SizeToContent="Height" WindowStartupLocation="CenterScreen">
+        Title="iRacing-STT-VR 1.9" Closed="Window_Closed" ResizeMode="CanMinimize" SizeToContent="WidthAndHeight" WindowStartupLocation="CenterScreen">
     <Grid>
-        <StackPanel>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Image x:Name="StatusImageB" Source="/red-light.png" Width="16" Height="16" Margin="775,2,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Stretch="None" Grid.Column="0"/>
+        <Image x:Name="StatusImageA" Source="/red-light.png" Width="16" Height="16" Margin="755,2,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Stretch="None" Grid.Column="0"/>
+        <StackPanel Grid.Column="0" Width="800">
             <TabControl x:Name="MainWindowTabControl">
                 <TabItem Header="Status">
                     <StackPanel Margin="5,0,5,0 ">
@@ -52,6 +57,8 @@
                             <TextBox x:Name="BackgroundTextureFileNameTextBox" TextWrapping="NoWrap" Text="TextBox" Padding="3" TextChanged="BackgroundTextureFileNameTextBox_TextChanged"/>
                             <Button x:Name="BackgroundTextureFileNameButton" Content="..." Margin="5,0,0,0" Padding="5,0,5,0" Grid.Column="1" Click="BackgroundTextureFileNameButton_Click"/>
                         </Grid>
+                        <Label Content="Background Opacity" />
+                        <Slider x:Name="BackgroundOpacitySlider" Margin="0,0,0,0" Maximum="100" Minimum="0" SmallChange="1" LargeChange="5" ValueChanged="BackgroundOpacitySlider_ValueChanged" />
                         <Label Content="Font File Name"/>
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -82,7 +89,5 @@
             </TabControl>
             <Button x:Name="ApplySettingsButton" Content="Apply Settings" Margin="5,10,5,10" Click="ApplySettingsButton_Click"/>
         </StackPanel>
-        <Image x:Name="StatusImageB" Source="/red-light.png" Width="16" Height="16" Margin="758,2,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Stretch="None"/>
-        <Image x:Name="StatusImageA" Source="/red-light.png" Width="16" Height="16" Margin="739,2,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Stretch="None"/>
     </Grid>
 </Window>
